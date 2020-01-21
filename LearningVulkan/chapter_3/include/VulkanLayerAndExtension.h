@@ -2,7 +2,7 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
-struct LayerProperties
+struct VulkanLayerProperties
 {
 	VkLayerProperties properties;
 	std::vector<VkExtensionProperties> extensions;
@@ -10,8 +10,11 @@ struct LayerProperties
 
 class VulkanLayerAndExtension
 {
+private:
+	std::vector<VulkanLayerProperties> layerPropertyList;
+
 public:
-	std::vector<LayerProperties> getInstanceLayerProperties();
-	VkResult getExtensionProperties(LayerProperties& layerProps, VkPhysicalDevice* gpu = nullptr);
+	VkResult getInstanceLayerProperties();
+	VkResult getExtensionProperties(VulkanLayerProperties& layerProps, VkPhysicalDevice* gpu = nullptr);
 	VkResult getDeviceExtensionProperties(VkPhysicalDevice* gpu);
 };
