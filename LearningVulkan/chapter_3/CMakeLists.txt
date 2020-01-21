@@ -10,9 +10,17 @@ find_package(Vulkan REQUIRED)
 
 add_executable(chapter_3 
 	"source/main.cpp"
+
+	"include/VulkanApplication.h"
 	"source/VulkanApplication.cpp"
+
+	"include/VulkanDevice.h"
 	"source/VulkanDevice.cpp"
+
+	"include/VulkanInstance.h"
 	"source/VulkanInstance.cpp"
+
+	"include/VulkanLayerAndExtension.h"
 	"source/VulkanLayerAndExtension.cpp"
 )
 

@@ -1,6 +1,7 @@
 #include "VulkanLayerAndExtension.h"
 
 #include <iostream>
+#include <string>
 
 VkResult VulkanLayerAndExtension::getInstanceLayerProperties()
 {
@@ -23,12 +24,12 @@ VkResult VulkanLayerAndExtension::getInstanceLayerProperties()
 
 	} while(result == VK_INCOMPLETE);
 
-	std::cout << "Instance Layers:\n\t";
+	std::cout << "Instance Layers(" << std::to_string(instanceLayerCount) << "):\n";
 
 	for(auto layerProperty : layerProperties)
 	{
-		std::cout << layerProperty.layerName << "  " << layerProperty.specVersion << "  "
-				  << layerProperty.implementationVersion << "\n\t" << layerProperty.description << "\n\t";
+		std::cout << "\n\t" << layerProperty.description << "  (" << layerProperty.layerName << ", "
+				  << layerProperty.implementationVersion << ", " << layerProperty.specVersion << ")\n";
 
 		VulkanLayerProperties prop;
 		prop.properties = layerProperty;
@@ -37,15 +38,17 @@ VkResult VulkanLayerAndExtension::getInstanceLayerProperties()
 			continue;
 
 		layerPropertyList.push_back(prop);
-		std::cout << "Layer Extensions:\n";
-		for(auto extension : prop.extensions)
-			std::cout << "\t\t" << extension.extensionName << "  " << extension.specVersion << "\n";
+		if(!prop.extensions.empty())
+		{
+			std::cout << "\tLayer Extensions(" << std::to_string(prop.extensions.size()) << "):\n";
+			for(auto extension : prop.extensions)
+				std::cout << "\t\t" << extension.extensionName << "  " << extension.specVersion << "\n";
+		}
 	}
 	return result;
 }
 
-VkResult VulkanLayerAndExtension::getExtensionProperties(
-	VulkanLayerProperties& layerProps, VkPhysicalDevice* gpu = nullptr)
+VkResult VulkanLayerAndExtension::getExtensionProperties(VulkanLayerProperties& layerProps, VkPhysicalDevice* gpu)
 {
 	unsigned int extensionCount;
 	VkResult result;
@@ -69,8 +72,11 @@ VkResult VulkanLayerAndExtension::getExtensionProperties(
 			result = vkEnumerateInstanceExtensionProperties(layerName, &extensionCount, extensionProperties.data());
 
 	} while(result == VK_INCOMPLETE);
+
+	return result;
 }
 
 VkResult VulkanLayerAndExtension::getDeviceExtensionProperties(VkPhysicalDevice* gpu)
 {
+	return VK_INCOMPLETE;
 }
