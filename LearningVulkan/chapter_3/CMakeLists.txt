@@ -30,3 +30,5 @@ target_include_directories(chapter_3
 )
 
 target_link_libraries(chapter_3 PRIVATE Vulkan::Vulkan)
+
+target_compile_definitions(chapter_3 PRIVATE VK_USE_PLATFORM_WIN32_KHR)
