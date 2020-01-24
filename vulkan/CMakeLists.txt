@@ -1,1 +1,3 @@
-add_subdirectory("hello_triangle")
+find_package(Vulkan REQUIRED)
+
+add_subdirectory("hello-triangle")
