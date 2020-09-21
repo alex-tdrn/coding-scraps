@@ -478,10 +478,10 @@ private:
 
 	void mainLoop()
 	{
-		while(!glfwWindowShouldClose(window))
-		{
-			glfwPollEvents();
-		}
+		// while(!glfwWindowShouldClose(window))
+		// {
+		// 	glfwPollEvents();
+		// }
 	}
 
 	void cleanup()
