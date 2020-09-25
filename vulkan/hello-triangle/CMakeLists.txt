@@ -1,6 +1,14 @@
 add_executable(
 	vulkan-hello-triangle
 	"src/main.cpp"
+	"src/HelloTriangle.cpp"
+	"inc/HelloTriangle.h"
+)
+
+target_include_directories(
+	vulkan-hello-triangle
+	PUBLIC
+	"inc"
 )
 
 add_shaders(${CMAKE_CURRENT_SOURCE_DIR}/shaders)
