@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 
 #include <GLFW/glfw3.h>
 #include <optional>
@@ -18,9 +18,9 @@ struct QueueFamilyIndices
 
 struct SwapChainSupportDetails
 {
-	VkSurfaceCapabilitiesKHR capabilities;
-	std::vector<VkSurfaceFormatKHR> formats;
-	std::vector<VkPresentModeKHR> presentModes;
+	vk::SurfaceCapabilitiesKHR capabilities;
+	std::vector<vk::SurfaceFormatKHR> formats;
+	std::vector<vk::PresentModeKHR> presentModes;
 };
 
 class HelloTriangleApplication
@@ -37,28 +37,28 @@ private:
 	const int MAX_FRAMES_IN_FLIGHT = 2;
 
 	GLFWwindow* window;
-	VkInstance instance;
-	VkDebugUtilsMessengerEXT debugMessenger;
-	VkSurfaceKHR surface;
-	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-	VkDevice device;
-	VkQueue graphicsQueue;
-	VkQueue presentQueue;
-	VkSwapchainKHR swapChain;
-	std::vector<VkImage> swapChainImages;
-	VkFormat swapChainImageFormat;
-	VkExtent2D swapChainExtent;
-	std::vector<VkImageView> swapChainImageViews;
-	VkRenderPass renderPass;
-	VkPipelineLayout pipelineLayout;
-	VkPipeline graphicsPipeline;
-	std::vector<VkFramebuffer> swapChainFramebuffers;
-	VkCommandPool commandPool;
-	std::vector<VkCommandBuffer> commandBuffers;
-	std::vector<VkSemaphore> imageAvailableSemaphores;
-	std::vector<VkSemaphore> renderFinishedSemaphores;
-	std::vector<VkFence> inFlightFences;
-	std::vector<VkFence> imagesInFlight;
+	vk::Instance instance;
+	vk::DebugUtilsMessengerEXT debugMessenger;
+	vk::SurfaceKHR surface;
+	vk::PhysicalDevice physicalDevice;
+	vk::Device device;
+	vk::Queue graphicsQueue;
+	vk::Queue presentQueue;
+	vk::SwapchainKHR swapChain;
+	std::vector<vk::Image> swapChainImages;
+	vk::Format swapChainImageFormat;
+	vk::Extent2D swapChainExtent;
+	std::vector<vk::ImageView> swapChainImageViews;
+	vk::RenderPass renderPass;
+	vk::PipelineLayout pipelineLayout;
+	vk::Pipeline graphicsPipeline;
+	std::vector<vk::Framebuffer> swapChainFramebuffers;
+	vk::CommandPool commandPool;
+	std::vector<vk::CommandBuffer> commandBuffers;
+	std::vector<vk::Semaphore> imageAvailableSemaphores;
+	std::vector<vk::Semaphore> renderFinishedSemaphores;
+	std::vector<vk::Fence> inFlightFences;
+	std::vector<vk::Fence> imagesInFlight;
 	size_t currentFrame = 0;
 
 	void initWindow();
@@ -67,7 +67,7 @@ private:
 	bool checkValidationLayerSupport();
 	std::vector<const char*> getRequiredExtensions();
 	void setupDebugMessenger();
-	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+	void populateDebugMessengerCreateInfo(vk::DebugUtilsMessengerCreateInfoEXT& createInfo);
 	void createSurface();
 	void pickPhysicalDevice();
 	void createLogicalDevice();
@@ -76,20 +76,20 @@ private:
 	void createSyncObjects();
 	void mainLoop();
 	void cleanup();
-	bool isDeviceSuitable(VkPhysicalDevice device);
-	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+	bool isDeviceSuitable(vk::PhysicalDevice device);
+	bool checkDeviceExtensionSupport(vk::PhysicalDevice device);
 	void drawFrame();
 	void recreateSwapChain();
 	void createSwapChain();
-	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
-	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& avaialablePresentModes);
-	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
+	vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities);
+	vk::PresentModeKHR chooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& avaialablePresentModes);
+	vk::SurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats);
+	SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice device);
 	void createImageViews();
 	void createRenderPass();
 	void createGraphicsPipeline();
-	VkShaderModule createShaderModule(const std::vector<char>& code);
+	vk::ShaderModule createShaderModule(const std::vector<char>& code);
 	void createCommandBuffers();
-	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+	QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device);
 	void cleanupSwapChain();
 };
