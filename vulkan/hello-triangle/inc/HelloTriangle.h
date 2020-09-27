@@ -3,16 +3,7 @@
 #include <vulkan/vulkan.h>
 
 #include <GLFW/glfw3.h>
-#include <algorithm>
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <fstream>
-#include <functional>
-#include <iostream>
 #include <optional>
-#include <set>
-#include <stdexcept>
 #include <vector>
 
 struct QueueFamilyIndices
@@ -71,34 +62,34 @@ private:
 	size_t currentFrame = 0;
 
 	void initWindow();
-	std::vector<const char*> getRequiredExtensions();
-	bool checkValidationLayerSupport();
+	void initVulkan();
 	void createInstance();
-	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+	bool checkValidationLayerSupport();
+	std::vector<const char*> getRequiredExtensions();
 	void setupDebugMessenger();
+	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 	void createSurface();
-	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
-	bool isDeviceSuitable(VkPhysicalDevice device);
-	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 	void pickPhysicalDevice();
-	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
 	void createLogicalDevice();
-	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& avaialablePresentModes);
-	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
-	void createSwapChain();
-	void createImageViews();
-	void createRenderPass();
-	VkShaderModule createShaderModule(const std::vector<char>& code);
-	void createGraphicsPipeline();
 	void createFramebuffers();
 	void createCommandPool();
-	void createCommandBuffers();
 	void createSyncObjects();
-	void initVulkan();
-	void cleanupSwapChain();
-	void recreateSwapChain();
-	void drawFrame();
 	void mainLoop();
 	void cleanup();
+	bool isDeviceSuitable(VkPhysicalDevice device);
+	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+	void drawFrame();
+	void recreateSwapChain();
+	void createSwapChain();
+	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& avaialablePresentModes);
+	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
+	void createImageViews();
+	void createRenderPass();
+	void createGraphicsPipeline();
+	VkShaderModule createShaderModule(const std::vector<char>& code);
+	void createCommandBuffers();
+	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+	void cleanupSwapChain();
 };

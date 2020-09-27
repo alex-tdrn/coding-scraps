@@ -1,5 +1,7 @@
 #include "HelloTriangle.h"
 
+#include <iostream>
+
 int main()
 {
 	HelloTriangleApplication app;
