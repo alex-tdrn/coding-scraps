@@ -36,6 +36,7 @@ class HelloTriangleApplication
 {
 public:
 	bool framebufferResized = false;
+	void run();
 
 private:
 	const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
@@ -69,63 +70,35 @@ private:
 	std::vector<VkFence> imagesInFlight;
 	size_t currentFrame = 0;
 
-private:
 	void initWindow();
-
 	std::vector<const char*> getRequiredExtensions();
-
 	bool checkValidationLayerSupport();
-
 	void createInstance();
-
 	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-
 	void setupDebugMessenger();
-
 	void createSurface();
-
 	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
-
 	bool isDeviceSuitable(VkPhysicalDevice device);
-
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
-
 	void pickPhysicalDevice();
-
 	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
-
 	void createLogicalDevice();
-
 	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-
 	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& avaialablePresentModes);
-
 	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 	void createSwapChain();
-
 	void createImageViews();
 	void createRenderPass();
-
 	VkShaderModule createShaderModule(const std::vector<char>& code);
 	void createGraphicsPipeline();
-
 	void createFramebuffers();
-
 	void createCommandPool();
 	void createCommandBuffers();
-
 	void createSyncObjects();
-
 	void initVulkan();
-
 	void cleanupSwapChain();
-
 	void recreateSwapChain();
 	void drawFrame();
-
 	void mainLoop();
 	void cleanup();
-
-public:
-	void run();
 };

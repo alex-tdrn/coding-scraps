@@ -9,8 +9,11 @@ set(CMAKE_CXX_EXTENSIONS NO)
 find_program(CONAN_FOUND conan REQUIRED)
 
 execute_process(
-	COMMAND conan install ${CMAKE_SOURCE_DIR} -if ${CMAKE_BINARY_DIR} --build missing 
-		-s build_type=${CMAKE_BUILD_TYPE} -e CXX=${CMAKE_CXX_COMPILER} -e CC=${CMAKE_C_COMPILER})
+	COMMAND conan install ${CMAKE_SOURCE_DIR} -if ${CMAKE_BINARY_DIR} --build missing -s build_type=${CMAKE_BUILD_TYPE}
+			-e CXX=${CMAKE_CXX_COMPILER} -e CC=${CMAKE_C_COMPILER}
+)
 include(${CMAKE_BINARY_DIR}/conan_paths.cmake)
+
+add_compile_definitions("$<$<CONFIG:DEBUG>:DEBUG>")
 
 add_subdirectory("vulkan")
