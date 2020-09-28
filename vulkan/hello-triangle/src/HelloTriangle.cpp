@@ -16,6 +16,22 @@ const bool enableValidationLayers = true;
 const bool enableValidationLayers = false;
 #endif
 
+PFN_vkCreateDebugUtilsMessengerEXT pfnVkCreateDebugUtilsMessengerEXT;
+PFN_vkDestroyDebugUtilsMessengerEXT pfnVkDestroyDebugUtilsMessengerEXT;
+
+VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugUtilsMessengerEXT(VkInstance instance,
+	const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator,
+	VkDebugUtilsMessengerEXT* pMessenger)
+{
+	return pfnVkCreateDebugUtilsMessengerEXT(instance, pCreateInfo, pAllocator, pMessenger);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(
+	VkInstance instance, VkDebugUtilsMessengerEXT messenger, VkAllocationCallbacks const* pAllocator)
+{
+	return pfnVkDestroyDebugUtilsMessengerEXT(instance, messenger, pAllocator);
+}
+
 void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
 	HelloTriangleApplication* app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
@@ -43,8 +59,8 @@ std::vector<char> readFile(const std::string& filename)
 	return buffer;
 }
 
-VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-	vk::DebugUtilsMessageTypeFlagsEXT messageType, const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData,
+VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+	VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData)
 {
 	std::cerr << "validation layer:  " << pCallbackData->pMessage << '\n';
@@ -115,8 +131,8 @@ void HelloTriangleApplication::createInstance()
 		createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
 		createInfo.ppEnabledLayerNames = validationLayers.data();
 
-		populateDebugMessengerCreateInfo(debugCreateInfo);
-		createInfo.pNext = &debugCreateInfo;
+		// populateDebugMessengerCreateInfo(debugCreateInfo);
+		// createInfo.pNext = &debugCreateInfo;
 	}
 	else
 	{
@@ -171,20 +187,23 @@ void HelloTriangleApplication::setupDebugMessenger()
 
 	vk::DebugUtilsMessengerCreateInfoEXT createInfo;
 
-	populateDebugMessengerCreateInfo(createInfo);
-
-	debugMessenger = instance.createDebugUtilsMessengerEXT(createInfo);
-}
-
-void HelloTriangleApplication::populateDebugMessengerCreateInfo(vk::DebugUtilsMessengerCreateInfoEXT& createInfo)
-{
 	createInfo.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
 								 vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
 								 vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
 	createInfo.messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
 							 vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
 							 vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
-	// createInfo.pfnUserCallback = debugCallback;FIXME
+	createInfo.pfnUserCallback = debugCallback;
+
+	pfnVkCreateDebugUtilsMessengerEXT = reinterpret_cast<decltype(pfnVkCreateDebugUtilsMessengerEXT)>(
+		instance.getProcAddr("vkCreateDebugUtilsMessengerEXT"));
+	assert(pfnVkCreateDebugUtilsMessengerEXT);
+
+	pfnVkDestroyDebugUtilsMessengerEXT = reinterpret_cast<decltype(pfnVkDestroyDebugUtilsMessengerEXT)>(
+		instance.getProcAddr("vkDestroyDebugUtilsMessengerEXT"));
+	assert(pfnVkCreateDebugUtilsMessengerEXT);
+
+	debugMessenger = instance.createDebugUtilsMessengerEXT(createInfo);
 }
 
 void HelloTriangleApplication::createSurface()
@@ -349,18 +368,8 @@ void HelloTriangleApplication::drawFrame()
 
 	try
 	{
-		auto [result, imageIndex] =
-			device.acquireNextImageKHR(swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], nullptr);
-
-		if(result == vk::Result::eErrorOutOfDateKHR)
-		{
-			recreateSwapChain();
-			return;
-		}
-		else if(result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
-		{
-			throw std::runtime_error("failed to acquire swap chain image!");
-		}
+		uint32_t imageIndex =
+			device.acquireNextImageKHR(swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], nullptr).value;
 
 		if(imagesInFlight[imageIndex])
 			device.waitForFences(imagesInFlight[imageIndex], true, UINT64_MAX);
@@ -395,23 +404,19 @@ void HelloTriangleApplication::drawFrame()
 		presentInfo.pImageIndices = &imageIndex;
 		presentInfo.pResults = nullptr;
 
-		result = presentQueue.presentKHR(presentInfo);
+		auto result = presentQueue.presentKHR(presentInfo);
 
 		if(result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR || framebufferResized)
 		{
 			framebufferResized = false;
 			recreateSwapChain();
 		}
-		else if(result != vk::Result::eSuccess)
-		{
-			throw std::runtime_error("failed to present swap chain image!");
-		}
 
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
-	catch(std::exception const& e)
+	catch(vk::OutOfDateKHRError& e)
 	{
-		throw e;
+		recreateSwapChain();
 	}
 }
 
