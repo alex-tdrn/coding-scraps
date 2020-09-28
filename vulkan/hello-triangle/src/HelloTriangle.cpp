@@ -206,7 +206,7 @@ void HelloTriangleApplication::createSurface()
 {
 	VkSurfaceKHR _surface;
 	glfwCreateWindowSurface(VkInstance(instance.get()), window, nullptr, &_surface);
-	surface = vk::UniqueSurfaceKHR(_surface);
+	surface = vk::UniqueSurfaceKHR(_surface, instance.get());
 }
 
 void HelloTriangleApplication::pickPhysicalDevice()
