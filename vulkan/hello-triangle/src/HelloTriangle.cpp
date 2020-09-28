@@ -359,7 +359,7 @@ void HelloTriangleApplication::drawFrame()
 
 		if(imagesInFlight[imageIndex])
 			device->waitForFences(imagesInFlight[imageIndex].get(), true, UINT64_MAX);
-		imagesInFlight[imageIndex].reset(inFlightFences[currentFrame].get());
+		imagesInFlight[imageIndex] = device->createFenceUnique({vk::FenceCreateFlagBits::eSignaled});
 
 		vk::Semaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame].get()};
 		vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
