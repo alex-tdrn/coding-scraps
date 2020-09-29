@@ -3,8 +3,42 @@
 #include <vulkan/vulkan.hpp>
 
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 #include <optional>
 #include <vector>
+
+struct Vertex
+{
+	glm::vec2 pos;
+	glm::vec3 color;
+
+	static vk::VertexInputBindingDescription getBindingDescription()
+	{
+		vk::VertexInputBindingDescription description;
+		description.binding = 0;
+		description.stride = sizeof(Vertex);
+		description.inputRate = vk::VertexInputRate::eVertex;
+
+		return description;
+	}
+
+	static std::array<vk::VertexInputAttributeDescription, 2> getAttributeDescriptions()
+	{
+		vk::VertexInputAttributeDescription positionAttribute;
+		positionAttribute.binding = 0;
+		positionAttribute.location = 0;
+		positionAttribute.format = vk::Format::eR32G32Sfloat;
+		positionAttribute.offset = offsetof(Vertex, pos);
+
+		vk::VertexInputAttributeDescription colorAttribute;
+		colorAttribute.binding = 0;
+		colorAttribute.location = 1;
+		colorAttribute.format = vk::Format::eR32G32B32Sfloat;
+		colorAttribute.offset = offsetof(Vertex, color);
+
+		return {positionAttribute, colorAttribute};
+	}
+};
 
 struct QueueFamilyIndices
 {
