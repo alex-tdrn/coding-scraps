@@ -16,9 +16,10 @@ const bool enableValidationLayers = true;
 const bool enableValidationLayers = false;
 #endif
 
-const std::vector<Vertex> vertices = {{{-0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}}, {{0.5f, -0.5f}, {0.0f, 1.0f, 1.0f}},
-	{{-0.5f, 0.5f}, {1.0f, 0.0f, 1.0f}}, {{-0.5f, 0.5f}, {1.0f, 0.0f, 1.0f}}, {{0.5f, -0.5f}, {0.0f, 1.0f, 1.0f}},
-	{{0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}};
+const std::vector<Vertex> vertices = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}}, {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+	{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}, {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}};
+
+const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 
 PFN_vkCreateDebugUtilsMessengerEXT pfnVkCreateDebugUtilsMessengerEXT;
 PFN_vkDestroyDebugUtilsMessengerEXT pfnVkDestroyDebugUtilsMessengerEXT;
@@ -107,6 +108,7 @@ void VertexBuffers::initVulkan()
 	createFramebuffers();
 	createCommandPool();
 	createVertexBuffer();
+	createIndexBuffer();
 	createCommandBuffers();
 	createSyncObjects();
 }
@@ -188,9 +190,8 @@ void VertexBuffers::setupDebugMessenger()
 
 	vk::DebugUtilsMessengerCreateInfoEXT createInfo;
 
-	createInfo.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
-								 vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-								 vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+	createInfo.messageSeverity =
+		vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
 	createInfo.messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
 							 vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
 							 vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
@@ -777,6 +778,24 @@ void VertexBuffers::createVertexBuffer()
 	copyBuffer(stagingBuffer.get(), vertexBuffer.get(), size);
 }
 
+void VertexBuffers::createIndexBuffer()
+{
+	auto size = sizeof(indices[0]) * indices.size();
+
+	auto [stagingBuffer, stagingBufferMemory] = createBuffer(size, vk::BufferUsageFlagBits::eTransferSrc,
+		vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible);
+
+	void* data = device->mapMemory(stagingBufferMemory.get(), 0, size);
+	std::memcpy(data, indices.data(), size);
+	device->unmapMemory(stagingBufferMemory.get());
+
+	std::tie(indexBuffer, indexBufferMemory) =
+		createBuffer(size, vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+			vk::MemoryPropertyFlagBits::eDeviceLocal);
+
+	copyBuffer(stagingBuffer.get(), indexBuffer.get(), size);
+}
+
 void VertexBuffers::createCommandBuffers()
 {
 	commandBuffers.resize(swapChainFramebuffers.size());
@@ -808,7 +827,8 @@ void VertexBuffers::createCommandBuffers()
 		commandBuffers[i]->beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 		commandBuffers[i]->bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline.get());
 		commandBuffers[i]->bindVertexBuffers(0, vertexBuffer.get(), vk::DeviceSize{0});
-		commandBuffers[i]->draw(vertices.size(), 1, 0, 0);
+		commandBuffers[i]->bindIndexBuffer(indexBuffer.get(), vk::DeviceSize{0}, vk::IndexType::eUint16);
+		commandBuffers[i]->drawIndexed(indices.size(), 1, 0, 0, 0);
 		commandBuffers[i]->endRenderPass();
 		commandBuffers[i]->end();
 	}
