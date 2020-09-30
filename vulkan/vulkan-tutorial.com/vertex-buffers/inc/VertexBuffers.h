@@ -124,6 +124,9 @@ private:
 	void createRenderPass();
 	void createGraphicsPipeline();
 	vk::ShaderModule createShaderModule(const std::vector<char>& code);
+	void copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size);
+	std::pair<vk::UniqueBuffer, vk::UniqueDeviceMemory> createBuffer(
+		vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
 	void createVertexBuffer();
 	void createCommandBuffers();
 	QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device);

@@ -714,29 +714,67 @@ vk::ShaderModule VertexBuffers::createShaderModule(const std::vector<char>& code
 
 	return device->createShaderModule(createInfo);
 }
-void VertexBuffers::createVertexBuffer()
+
+void VertexBuffers::copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size)
+{
+	vk::CommandBufferAllocateInfo allocInfo;
+	allocInfo.level = vk::CommandBufferLevel::ePrimary;
+	allocInfo.commandPool = commandPool.get();
+	allocInfo.commandBufferCount = 1;
+
+	auto copyCommandBuffers = device->allocateCommandBuffersUnique(allocInfo);
+
+	copyCommandBuffers[0]->begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+	copyCommandBuffers[0]->copyBuffer(srcBuffer, dstBuffer, vk::BufferCopy{0, 0, size});
+	copyCommandBuffers[0]->end();
+
+	vk::SubmitInfo submitInfo;
+	submitInfo.setCommandBuffers(copyCommandBuffers[0].get());
+
+	graphicsQueue.submit(submitInfo, nullptr);
+
+	graphicsQueue.waitIdle();
+}
+
+std::pair<vk::UniqueBuffer, vk::UniqueDeviceMemory> VertexBuffers::createBuffer(
+	vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties)
 {
 	vk::BufferCreateInfo bufferInfo;
-	bufferInfo.size = sizeof(vertices[0]) * vertices.size();
-	bufferInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
+	bufferInfo.size = size;
+	bufferInfo.usage = usage;
 	bufferInfo.sharingMode = vk::SharingMode::eExclusive;
 
-	vertexBuffer = device->createBufferUnique(bufferInfo);
+	auto buffer = device->createBufferUnique(bufferInfo);
 
-	auto memRequirements = device->getBufferMemoryRequirements(vertexBuffer.get());
+	auto memRequirements = device->getBufferMemoryRequirements(buffer.get());
 
 	vk::MemoryAllocateInfo allocInfo;
 	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits,
-		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+	allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
-	vertexBufferMemory = device->allocateMemoryUnique(allocInfo);
+	auto memory = device->allocateMemoryUnique(allocInfo);
 
-	device->bindBufferMemory(vertexBuffer.get(), vertexBufferMemory.get(), 0);
+	device->bindBufferMemory(buffer.get(), memory.get(), 0);
 
-	void* data = device->mapMemory(vertexBufferMemory.get(), 0, bufferInfo.size);
-	std::memcpy(data, vertices.data(), bufferInfo.size);
-	device->unmapMemory(vertexBufferMemory.get());
+	return {std::move(buffer), std::move(memory)};
+}
+
+void VertexBuffers::createVertexBuffer()
+{
+	auto size = sizeof(vertices[0]) * vertices.size();
+
+	auto [stagingBuffer, stagingBufferMemory] = createBuffer(size, vk::BufferUsageFlagBits::eTransferSrc,
+		vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible);
+
+	void* data = device->mapMemory(stagingBufferMemory.get(), 0, size);
+	std::memcpy(data, vertices.data(), size);
+	device->unmapMemory(stagingBufferMemory.get());
+
+	std::tie(vertexBuffer, vertexBufferMemory) =
+		createBuffer(size, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+			vk::MemoryPropertyFlagBits::eDeviceLocal);
+
+	copyBuffer(stagingBuffer.get(), vertexBuffer.get(), size);
 }
 
 void VertexBuffers::createCommandBuffers()
