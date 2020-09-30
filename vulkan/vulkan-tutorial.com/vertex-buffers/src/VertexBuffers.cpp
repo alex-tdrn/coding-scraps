@@ -16,8 +16,9 @@ const bool enableValidationLayers = true;
 const bool enableValidationLayers = false;
 #endif
 
-const std::vector<Vertex> vertices = {
-	{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}}, {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}}, {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
+const std::vector<Vertex> vertices = {{{-0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}}, {{0.5f, -0.5f}, {0.0f, 1.0f, 1.0f}},
+	{{-0.5f, 0.5f}, {1.0f, 0.0f, 1.0f}}, {{-0.5f, 0.5f}, {1.0f, 0.0f, 1.0f}}, {{0.5f, -0.5f}, {0.0f, 1.0f, 1.0f}},
+	{{0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}};
 
 PFN_vkCreateDebugUtilsMessengerEXT pfnVkCreateDebugUtilsMessengerEXT;
 PFN_vkDestroyDebugUtilsMessengerEXT pfnVkDestroyDebugUtilsMessengerEXT;
@@ -105,6 +106,7 @@ void VertexBuffers::initVulkan()
 	createGraphicsPipeline();
 	createFramebuffers();
 	createCommandPool();
+	createVertexBuffer();
 	createCommandBuffers();
 	createSyncObjects();
 }
@@ -318,12 +320,6 @@ void VertexBuffers::mainLoop()
 		drawFrame();
 	}
 	device->waitIdle();
-}
-
-void VertexBuffers::cleanup()
-{
-	glfwDestroyWindow(window);
-	glfwTerminate();
 }
 
 bool VertexBuffers::isDeviceSuitable(vk::PhysicalDevice device)
@@ -718,6 +714,30 @@ vk::ShaderModule VertexBuffers::createShaderModule(const std::vector<char>& code
 
 	return device->createShaderModule(createInfo);
 }
+void VertexBuffers::createVertexBuffer()
+{
+	vk::BufferCreateInfo bufferInfo;
+	bufferInfo.size = sizeof(vertices[0]) * vertices.size();
+	bufferInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
+	bufferInfo.sharingMode = vk::SharingMode::eExclusive;
+
+	vertexBuffer = device->createBufferUnique(bufferInfo);
+
+	auto memRequirements = device->getBufferMemoryRequirements(vertexBuffer.get());
+
+	vk::MemoryAllocateInfo allocInfo;
+	allocInfo.allocationSize = memRequirements.size;
+	allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits,
+		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+	vertexBufferMemory = device->allocateMemoryUnique(allocInfo);
+
+	device->bindBufferMemory(vertexBuffer.get(), vertexBufferMemory.get(), 0);
+
+	void* data = device->mapMemory(vertexBufferMemory.get(), 0, bufferInfo.size);
+	std::memcpy(data, vertices.data(), bufferInfo.size);
+	device->unmapMemory(vertexBufferMemory.get());
+}
 
 void VertexBuffers::createCommandBuffers()
 {
@@ -749,10 +769,20 @@ void VertexBuffers::createCommandBuffers()
 
 		commandBuffers[i]->beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 		commandBuffers[i]->bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline.get());
-		commandBuffers[i]->draw(3, 1, 0, 0);
+		commandBuffers[i]->bindVertexBuffers(0, vertexBuffer.get(), vk::DeviceSize{0});
+		commandBuffers[i]->draw(vertices.size(), 1, 0, 0);
 		commandBuffers[i]->endRenderPass();
 		commandBuffers[i]->end();
 	}
+}
+
+uint32_t VertexBuffers::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties)
+{
+	auto memProperties = physicalDevice.getMemoryProperties();
+	for(uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+		if(typeFilter & (1 << i) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+			return i;
+	throw std::runtime_error("No suitable memory type found!");
 }
 
 QueueFamilyIndices VertexBuffers::findQueueFamilies(vk::PhysicalDevice device)
@@ -772,4 +802,10 @@ QueueFamilyIndices VertexBuffers::findQueueFamilies(vk::PhysicalDevice device)
 		i++;
 	}
 	return indices;
+}
+
+void VertexBuffers::cleanup()
+{
+	glfwDestroyWindow(window);
+	glfwTerminate();
 }

@@ -89,6 +89,8 @@ private:
 	std::vector<vk::UniqueFramebuffer> swapChainFramebuffers;
 	vk::UniqueCommandPool commandPool;
 	std::vector<vk::UniqueCommandBuffer> commandBuffers;
+	vk::UniqueBuffer vertexBuffer;
+	vk::UniqueDeviceMemory vertexBufferMemory;
 	std::vector<vk::UniqueSemaphore> imageAvailableSemaphores;
 	std::vector<vk::UniqueSemaphore> renderFinishedSemaphores;
 	std::vector<vk::UniqueFence> inFlightFences;
@@ -122,7 +124,9 @@ private:
 	void createRenderPass();
 	void createGraphicsPipeline();
 	vk::ShaderModule createShaderModule(const std::vector<char>& code);
+	void createVertexBuffer();
 	void createCommandBuffers();
 	QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device);
+	uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
 	void cleanup();
 };
