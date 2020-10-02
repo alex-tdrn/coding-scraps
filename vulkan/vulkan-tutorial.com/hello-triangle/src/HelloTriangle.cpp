@@ -110,37 +110,20 @@ void HelloTriangleApplication::createInstance()
 	if(enableValidationLayers && !checkValidationLayerSupport())
 		throw std::runtime_error("validation layers requested, but not available!");
 
-	vk::ApplicationInfo appInfo;
-	appInfo.pApplicationName = "Hello Triangle";
-	appInfo.apiVersion = VK_API_VERSION_1_2;
-
-	vk::InstanceCreateInfo createInfo;
-	createInfo.pApplicationInfo = &appInfo;
+	auto appInfo = vk::ApplicationInfo().setPApplicationName("Hello Triangle").setApiVersion(VK_API_VERSION_1_2);
 
 	auto extensions = getRequiredExtensions();
-
-	createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-	createInfo.ppEnabledExtensionNames = extensions.data();
-
-	vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo;
+	auto instanceInfo = vk::InstanceCreateInfo().setPApplicationInfo(&appInfo).setPEnabledExtensionNames(extensions);
 
 	if(enableValidationLayers)
-	{
-		createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-		createInfo.ppEnabledLayerNames = validationLayers.data();
-	}
-	else
-	{
-		createInfo.enabledLayerCount = 0;
-		createInfo.pNext = nullptr;
-	}
+		instanceInfo.setPEnabledLayerNames(validationLayers);
 
-	instance = vk::createInstanceUnique(createInfo);
+	instance = vk::createInstanceUnique(instanceInfo);
 }
 
 bool HelloTriangleApplication::checkValidationLayerSupport()
 {
-	std::vector<vk::LayerProperties> availableLayers = vk::enumerateInstanceLayerProperties();
+	auto availableLayers = vk::enumerateInstanceLayerProperties();
 
 	for(const char* layerName : validationLayers)
 	{
@@ -180,15 +163,13 @@ void HelloTriangleApplication::setupDebugMessenger()
 	if(!enableValidationLayers)
 		return;
 
-	vk::DebugUtilsMessengerCreateInfoEXT createInfo;
-
-	createInfo.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
-								 vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-								 vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
-	createInfo.messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-							 vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-							 vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
-	createInfo.pfnUserCallback = debugCallback;
+	auto createInfo = vk::DebugUtilsMessengerCreateInfoEXT()
+						  .setMessageSeverity(vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+											  vk::DebugUtilsMessageSeverityFlagBitsEXT::eError)
+						  .setMessageType(vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+										  vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+										  vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance)
+						  .setPfnUserCallback(debugCallback);
 
 	pfnVkCreateDebugUtilsMessengerEXT = reinterpret_cast<decltype(pfnVkCreateDebugUtilsMessengerEXT)>(
 		instance->getProcAddr("vkCreateDebugUtilsMessengerEXT"));
@@ -210,7 +191,7 @@ void HelloTriangleApplication::createSurface()
 
 void HelloTriangleApplication::pickPhysicalDevice()
 {
-	std::vector<vk::PhysicalDevice> devices = instance->enumeratePhysicalDevices();
+	auto devices = instance->enumeratePhysicalDevices();
 	if(devices.empty())
 		throw std::runtime_error("failed to find GPUs  with Vulkan support!");
 
@@ -229,27 +210,15 @@ void HelloTriangleApplication::createLogicalDevice()
 	QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
 	std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
-	std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
 	float queuePriority = 1.0f;
 
-	for(auto queueFamily : uniqueQueueFamilies)
-	{
-		vk::DeviceQueueCreateInfo queueCreateInfo;
-		queueCreateInfo.queueFamilyIndex = queueFamily;
-		queueCreateInfo.queueCount = 1;
-		queueCreateInfo.pQueuePriorities = &queuePriority;
-		queueCreateInfos.push_back(queueCreateInfo);
-	}
+	for(auto queueFamily : std::set{indices.graphicsFamily.value(), indices.presentFamily.value()})
+		queueCreateInfos.push_back(
+			vk::DeviceQueueCreateInfo().setQueueFamilyIndex(queueFamily).setQueuePriorities(queuePriority));
 
-	vk::PhysicalDeviceFeatures deviceFeatures;
-
-	vk::DeviceCreateInfo createInfo;
-	createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-	createInfo.pQueueCreateInfos = queueCreateInfos.data();
-	createInfo.pEnabledFeatures = &deviceFeatures;
-	createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
-	createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+	auto createInfo =
+		vk::DeviceCreateInfo().setQueueCreateInfos(queueCreateInfos).setPEnabledExtensionNames(deviceExtensions);
 
 	device = physicalDevice.createDeviceUnique(createInfo);
 
@@ -259,29 +228,25 @@ void HelloTriangleApplication::createLogicalDevice()
 
 void HelloTriangleApplication::createFramebuffers()
 {
-	swapChainFramebuffers.resize(swapChainImageViews.size());
+	swapChainFramebuffers.clear();
+	swapChainFramebuffers.reserve(swapChainImageViews.size());
 
-	for(size_t i = 0; i < swapChainImageViews.size(); i++)
+	for(auto& imageView : swapChainImageViews)
 	{
-		vk::ImageView attachments[] = {swapChainImageViews[i].get()};
-
-		vk::FramebufferCreateInfo framebufferInfo;
-		framebufferInfo.renderPass = renderPass.get();
-		framebufferInfo.attachmentCount = 1;
-		framebufferInfo.pAttachments = attachments;
-		framebufferInfo.width = swapChainExtent.width;
-		framebufferInfo.height = swapChainExtent.height;
-		framebufferInfo.layers = 1;
-
-		swapChainFramebuffers[i] = device->createFramebufferUnique(framebufferInfo);
+		auto framebufferInfo = vk::FramebufferCreateInfo()
+								   .setRenderPass(renderPass.get())
+								   .setAttachments(imageView.get())
+								   .setWidth(swapChainExtent.width)
+								   .setHeight(swapChainExtent.height)
+								   .setLayers(1);
+		swapChainFramebuffers.push_back(device->createFramebufferUnique(framebufferInfo));
 	}
 }
 
 void HelloTriangleApplication::createCommandPool()
 {
 	QueueFamilyIndices queueFamilyindices = findQueueFamilies(physicalDevice);
-	vk::CommandPoolCreateInfo poolInfo;
-	poolInfo.queueFamilyIndex = queueFamilyindices.graphicsFamily.value();
+	auto poolInfo = vk::CommandPoolCreateInfo().setQueueFamilyIndex(queueFamilyindices.graphicsFamily.value());
 	commandPool = device->createCommandPoolUnique(poolInfo);
 }
 
@@ -293,15 +258,12 @@ void HelloTriangleApplication::createSyncObjects()
 	imagesInFlight.clear();
 	imagesInFlight.resize(swapChainImages.size());
 
-	vk::SemaphoreCreateInfo semaphoreInfo;
-
-	vk::FenceCreateInfo fenceInfo;
-	fenceInfo.flags = vk::FenceCreateFlagBits::eSignaled;
+	auto fenceInfo = vk::FenceCreateInfo().setFlags(vk::FenceCreateFlagBits::eSignaled);
 
 	for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		imageAvailableSemaphores[i] = device->createSemaphoreUnique(semaphoreInfo);
-		renderFinishedSemaphores[i] = device->createSemaphoreUnique(semaphoreInfo);
+		imageAvailableSemaphores[i] = device->createSemaphoreUnique({});
+		renderFinishedSemaphores[i] = device->createSemaphoreUnique({});
 		inFlightFences[i] = device->createFenceUnique(fenceInfo);
 	}
 }
@@ -360,32 +322,22 @@ void HelloTriangleApplication::drawFrame()
 			device->waitForFences(imagesInFlight[imageIndex].get(), true, UINT64_MAX);
 		imagesInFlight[imageIndex] = device->createFenceUnique({vk::FenceCreateFlagBits::eSignaled});
 
-		vk::Semaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame].get()};
-		vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
-		vk::SubmitInfo submitInfo;
-		submitInfo.waitSemaphoreCount = 1;
-		submitInfo.pWaitSemaphores = waitSemaphores;
-		submitInfo.pWaitDstStageMask = waitStages;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &commandBuffers[imageIndex].get();
+		vk::PipelineStageFlags waitStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 
-		vk::Semaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame].get()};
-		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = signalSemaphores;
+		auto submitInfo = vk::SubmitInfo()
+							  .setWaitSemaphores(imageAvailableSemaphores[currentFrame].get())
+							  .setSignalSemaphores(renderFinishedSemaphores[currentFrame].get())
+							  .setCommandBuffers(commandBuffers[imageIndex].get())
+							  .setWaitDstStageMask(waitStageMask);
 
 		device->resetFences(inFlightFences[currentFrame].get());
 
 		graphicsQueue.submit(submitInfo, inFlightFences[currentFrame].get());
 
-		vk::PresentInfoKHR presentInfo;
-		presentInfo.waitSemaphoreCount = 1;
-		presentInfo.pWaitSemaphores = signalSemaphores;
-
-		vk::SwapchainKHR swapChains[] = {swapChain.get()};
-		presentInfo.swapchainCount = 1;
-		presentInfo.pSwapchains = swapChains;
-		presentInfo.pImageIndices = &imageIndex;
-		presentInfo.pResults = nullptr;
+		auto presentInfo = vk::PresentInfoKHR()
+							   .setWaitSemaphores(renderFinishedSemaphores[currentFrame].get())
+							   .setSwapchains(swapChain.get())
+							   .setImageIndices(imageIndex);
 
 		auto result = presentQueue.presentKHR(presentInfo);
 
@@ -427,41 +379,36 @@ void HelloTriangleApplication::recreateSwapChain()
 void HelloTriangleApplication::createSwapChain()
 {
 	SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
-	vk::SurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
-	vk::PresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
-	vk::Extent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+	auto surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
 
 	uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
 	if(swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount)
 		imageCount = swapChainSupport.capabilities.maxImageCount;
 
-	vk::SwapchainCreateInfoKHR createInfo;
-	createInfo.surface = surface.get();
-	createInfo.minImageCount = imageCount;
-	createInfo.imageFormat = surfaceFormat.format;
-	createInfo.imageColorSpace = surfaceFormat.colorSpace;
-	createInfo.imageExtent = extent;
-	createInfo.imageArrayLayers = 1;
-	createInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
+	auto createInfo = vk::SwapchainCreateInfoKHR()
+						  .setSurface(surface.get())
+						  .setMinImageCount(imageCount)
+						  .setImageFormat(surfaceFormat.format)
+						  .setImageColorSpace(surfaceFormat.colorSpace)
+						  .setImageExtent(chooseSwapExtent(swapChainSupport.capabilities))
+						  .setImageArrayLayers(1)
+						  .setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
+						  .setPreTransform(swapChainSupport.capabilities.currentTransform)
+						  .setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque)
+						  .setPresentMode(chooseSwapPresentMode(swapChainSupport.presentModes))
+						  .setClipped(true);
 
 	auto indices = findQueueFamilies(physicalDevice);
-	uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
 	if(indices.graphicsFamily != indices.presentFamily)
 	{
-		createInfo.imageSharingMode = vk::SharingMode::eConcurrent;
-		createInfo.queueFamilyIndexCount = 2;
-		createInfo.pQueueFamilyIndices = queueFamilyIndices;
+		createInfo.setImageSharingMode(vk::SharingMode::eConcurrent);
+		createInfo.setQueueFamilyIndices(std::array{indices.graphicsFamily.value(), indices.presentFamily.value()});
 	}
 	else
 	{
-		createInfo.imageSharingMode = vk::SharingMode::eExclusive;
+		createInfo.setImageSharingMode(vk::SharingMode::eExclusive);
 	}
-
-	createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
-	createInfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
-	createInfo.presentMode = presentMode;
-	createInfo.clipped = true;
 
 	swapChain = device->createSwapchainKHRUnique(createInfo);
 
@@ -528,14 +475,10 @@ void HelloTriangleApplication::createImageViews()
 
 	for(size_t i = 0; i < swapChainImages.size(); i++)
 	{
-		vk::ImageViewCreateInfo createInfo;
-		createInfo.image = swapChainImages[i];
-		createInfo.viewType = vk::ImageViewType::e2D;
-		createInfo.format = swapChainImageFormat;
-		createInfo.components.r = vk::ComponentSwizzle::eIdentity;
-		createInfo.components.g = vk::ComponentSwizzle::eIdentity;
-		createInfo.components.b = vk::ComponentSwizzle::eIdentity;
-		createInfo.components.a = vk::ComponentSwizzle::eIdentity;
+		auto createInfo = vk::ImageViewCreateInfo()
+							  .setImage(swapChainImages[i])
+							  .setViewType(vk::ImageViewType::e2D)
+							  .setFormat(swapChainImageFormat);
 		createInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
 		createInfo.subresourceRange.baseMipLevel = 0;
 		createInfo.subresourceRange.levelCount = 1;
