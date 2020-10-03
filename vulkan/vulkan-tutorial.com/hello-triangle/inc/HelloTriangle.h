@@ -91,5 +91,4 @@ private:
 	vk::UniqueShaderModule createShaderModule(const std::vector<char>& code);
 	void createCommandBuffers();
 	QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device);
-	void cleanupSwapChain();
 };

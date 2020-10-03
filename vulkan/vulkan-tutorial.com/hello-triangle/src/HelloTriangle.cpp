@@ -594,31 +594,27 @@ vk::UniqueShaderModule HelloTriangleApplication::createShaderModule(const std::v
 
 void HelloTriangleApplication::createCommandBuffers()
 {
-	commandBuffers.resize(swapChainFramebuffers.size());
-	vk::CommandBufferAllocateInfo allocInfo;
-	allocInfo.commandPool = commandPool.get();
-	allocInfo.level = vk::CommandBufferLevel::ePrimary;
-	allocInfo.commandBufferCount = (uint32_t) commandBuffers.size();
+	auto allocInfo = vk::CommandBufferAllocateInfo()
+						 .setCommandPool(commandPool.get())
+						 .setLevel(vk::CommandBufferLevel::ePrimary)
+						 .setCommandBufferCount(swapChainFramebuffers.size());
 
 	commandBuffers = device->allocateCommandBuffersUnique(allocInfo);
 
 	for(int i = 0; i < commandBuffers.size(); i++)
 	{
-		vk::CommandBufferBeginInfo beginInfo;
-		beginInfo.flags = vk::CommandBufferUsageFlagBits::eSimultaneousUse;
-		beginInfo.pInheritanceInfo = nullptr;
+		auto beginInfo = vk::CommandBufferBeginInfo().setFlags(vk::CommandBufferUsageFlagBits::eSimultaneousUse);
 
 		commandBuffers[i]->begin(beginInfo);
 
-		vk::RenderPassBeginInfo renderPassInfo;
-		renderPassInfo.renderPass = renderPass.get();
-		renderPassInfo.framebuffer = swapChainFramebuffers[i].get();
-		renderPassInfo.renderArea.offset = vk::Offset2D{0, 0};
-		renderPassInfo.renderArea.extent = swapChainExtent;
-
 		vk::ClearValue clearColor = vk::ClearColorValue{std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}};
-		renderPassInfo.clearValueCount = 1;
-		renderPassInfo.pClearValues = &clearColor;
+
+		auto renderPassInfo = vk::RenderPassBeginInfo()
+								  .setRenderPass(renderPass.get())
+								  .setFramebuffer(swapChainFramebuffers[i].get())
+								  .setClearValues(clearColor);
+
+		renderPassInfo.renderArea.extent = swapChainExtent;
 
 		commandBuffers[i]->beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 		commandBuffers[i]->bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline.get());
@@ -645,17 +641,4 @@ QueueFamilyIndices HelloTriangleApplication::findQueueFamilies(vk::PhysicalDevic
 		i++;
 	}
 	return indices;
-}
-
-void HelloTriangleApplication::cleanupSwapChain()
-{
-	// for(auto framebuffer : swapChainFramebuffers)
-	// 	device->destroyFramebuffer(framebuffer);
-
-	// device->destroy(graphicsPipeline);
-	// device->destroy(pipelineLayout);
-	// device->destroy(renderPass);
-	// for(auto imageView : swapChainImageViews)
-	// 	device->destroy(imageView);
-	// device->destroy(swapChain);
 }
