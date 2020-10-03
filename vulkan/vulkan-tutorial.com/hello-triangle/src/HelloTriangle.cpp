@@ -478,52 +478,41 @@ void HelloTriangleApplication::createImageViews()
 		auto createInfo = vk::ImageViewCreateInfo()
 							  .setImage(swapChainImages[i])
 							  .setViewType(vk::ImageViewType::e2D)
-							  .setFormat(swapChainImageFormat);
-		createInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-		createInfo.subresourceRange.baseMipLevel = 0;
-		createInfo.subresourceRange.levelCount = 1;
-		createInfo.subresourceRange.baseArrayLayer = 0;
-		createInfo.subresourceRange.layerCount = 1;
-
+							  .setFormat(swapChainImageFormat)
+							  .setSubresourceRange(vk::ImageSubresourceRange()
+													   .setAspectMask(vk::ImageAspectFlagBits::eColor)
+													   .setLevelCount(1)
+													   .setLayerCount(1)); // horrible?
 		swapChainImageViews[i] = device->createImageViewUnique(createInfo);
 	}
 }
 
 void HelloTriangleApplication::createRenderPass()
 {
-	vk::AttachmentDescription colorAttachment;
-	colorAttachment.format = swapChainImageFormat;
-	colorAttachment.samples = vk::SampleCountFlagBits::e1;
-	colorAttachment.loadOp = vk::AttachmentLoadOp::eClear;
-	colorAttachment.storeOp = vk::AttachmentStoreOp::eStore;
-	colorAttachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-	colorAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-	colorAttachment.initialLayout = vk::ImageLayout::eUndefined;
-	colorAttachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
+	auto colorAttachment = vk::AttachmentDescription()
+							   .setFormat(swapChainImageFormat)
+							   .setSamples(vk::SampleCountFlagBits::e1)
+							   .setLoadOp(vk::AttachmentLoadOp::eClear)
+							   .setStoreOp(vk::AttachmentStoreOp::eStore)
+							   .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+							   .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+							   .setInitialLayout(vk::ImageLayout::eUndefined)
+							   .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
 
-	vk::AttachmentReference colorAttachmentRef;
-	colorAttachmentRef.attachment = 0;
-	colorAttachmentRef.layout = vk::ImageLayout::eColorAttachmentOptimal;
+	auto colorAttachmentRef = vk::AttachmentReference().setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
-	vk::SubpassDescription subpass;
-	subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &colorAttachmentRef;
+	auto subpass = vk::SubpassDescription()
+					   .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+					   .setColorAttachments(colorAttachmentRef);
 
-	vk::SubpassDependency dependency;
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency.dstSubpass = 0;
-	dependency.srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-	dependency.dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-	dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+	auto dependency = vk::SubpassDependency()
+						  .setSrcSubpass(VK_SUBPASS_EXTERNAL)
+						  .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+						  .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+						  .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
 
-	vk::RenderPassCreateInfo renderPassInfo;
-	renderPassInfo.attachmentCount = 1;
-	renderPassInfo.pAttachments = &colorAttachment;
-	renderPassInfo.subpassCount = 1;
-	renderPassInfo.pSubpasses = &subpass;
-	renderPassInfo.dependencyCount = 1;
-	renderPassInfo.pDependencies = &dependency;
+	auto renderPassInfo =
+		vk::RenderPassCreateInfo().setAttachments(colorAttachment).setSubpasses(subpass).setDependencies(dependency);
 
 	renderPass = device->createRenderPassUnique(renderPassInfo);
 }
@@ -536,125 +525,77 @@ void HelloTriangleApplication::createGraphicsPipeline()
 	auto vertShaderModule = createShaderModule(vertShaderCode);
 	auto fragShaderModule = createShaderModule(fragShaderCode);
 
-	vk::PipelineShaderStageCreateInfo vertShaderStageInfo;
-	vertShaderStageInfo.stage = vk::ShaderStageFlagBits::eVertex;
-	vertShaderStageInfo.module = vertShaderModule;
-	vertShaderStageInfo.pName = "main";
+	auto vertShaderStageInfo = vk::PipelineShaderStageCreateInfo()
+								   .setStage(vk::ShaderStageFlagBits::eVertex)
+								   .setModule(vertShaderModule.get())
+								   .setPName("main");
 
-	vk::PipelineShaderStageCreateInfo fragShaderStageInfo;
-	fragShaderStageInfo.stage = vk::ShaderStageFlagBits::eFragment;
-	fragShaderStageInfo.module = fragShaderModule;
-	fragShaderStageInfo.pName = "main";
+	auto fragShaderStageInfo = vk::PipelineShaderStageCreateInfo()
+								   .setStage(vk::ShaderStageFlagBits::eFragment)
+								   .setModule(fragShaderModule.get())
+								   .setPName("main");
 
-	vk::PipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+	auto vertexInputState = vk::PipelineVertexInputStateCreateInfo();
 
-	vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
-	vertexInputInfo.vertexBindingDescriptionCount = 0;
-	vertexInputInfo.pVertexBindingDescriptions = nullptr;
-	vertexInputInfo.vertexAttributeDescriptionCount = 0;
-	vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+	auto inputAssembly = vk::PipelineInputAssemblyStateCreateInfo()
+							 .setTopology(vk::PrimitiveTopology::eTriangleList)
+							 .setPrimitiveRestartEnable(false);
 
-	vk::PipelineInputAssemblyStateCreateInfo inputAssembly;
-	inputAssembly.topology = vk::PrimitiveTopology::eTriangleList;
-	inputAssembly.primitiveRestartEnable = false;
+	auto viewport = vk::Viewport()
+						.setWidth(swapChainExtent.width)
+						.setHeight(swapChainExtent.height)
+						.setMinDepth(0.0f)
+						.setMaxDepth(1.0f);
 
-	vk::Viewport viewport;
-	viewport.x = 0.0f;
-	viewport.y = 0.0f;
-	viewport.width = (float) swapChainExtent.width;
-	viewport.height = (float) swapChainExtent.height;
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
+	auto scissor = vk::Rect2D().setExtent(swapChainExtent);
 
-	vk::Rect2D scissor;
-	scissor.offset = vk::Offset2D{0, 0};
-	scissor.extent = swapChainExtent;
+	auto viewportState = vk::PipelineViewportStateCreateInfo().setViewports(viewport).setScissors(scissor);
 
-	vk::PipelineViewportStateCreateInfo viewportState;
-	viewportState.viewportCount = 1;
-	viewportState.pViewports = &viewport;
-	viewportState.scissorCount = 1;
-	viewportState.pScissors = &scissor;
+	auto rasterizer = vk::PipelineRasterizationStateCreateInfo()
+						  .setPolygonMode(vk::PolygonMode::eFill)
+						  .setLineWidth(1.0f)
+						  .setCullMode(vk::CullModeFlagBits::eBack)
+						  .setFrontFace(vk::FrontFace::eClockwise);
 
-	vk::PipelineRasterizationStateCreateInfo rasterizer;
-	rasterizer.depthClampEnable = false;
-	rasterizer.rasterizerDiscardEnable = false;
-	rasterizer.polygonMode = vk::PolygonMode::eFill;
-	rasterizer.lineWidth = 1.0f;
-	rasterizer.cullMode = vk::CullModeFlagBits::eBack;
-	rasterizer.frontFace = vk::FrontFace::eClockwise;
-	rasterizer.depthBiasEnable = false;
-	rasterizer.depthBiasConstantFactor = 0.0f;
-	rasterizer.depthBiasClamp = 0.0f;
-	rasterizer.depthBiasSlopeFactor = 0.0f;
+	auto multisampling = vk::PipelineMultisampleStateCreateInfo()
+							 .setRasterizationSamples(vk::SampleCountFlagBits::e1)
+							 .setMinSampleShading(1.0f);
 
-	vk::PipelineMultisampleStateCreateInfo multisampling;
-	multisampling.sampleShadingEnable = false;
-	multisampling.rasterizationSamples = vk::SampleCountFlagBits::e1;
-	multisampling.minSampleShading = 1.0f;
-	multisampling.pSampleMask = nullptr;
-	multisampling.alphaToCoverageEnable = false;
-	multisampling.alphaToOneEnable = false;
+	auto colorBlendAttachment = vk::PipelineColorBlendAttachmentState()
+									.setSrcColorBlendFactor(vk::BlendFactor::eOne)
+									.setDstColorBlendFactor(vk::BlendFactor::eZero)
+									.setColorBlendOp(vk::BlendOp::eAdd)
+									.setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
+									.setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+									.setAlphaBlendOp(vk::BlendOp::eAdd);
 
-	vk::PipelineColorBlendAttachmentState colorBlendAttachment;
-	colorBlendAttachment.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-										  vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
-	colorBlendAttachment.blendEnable = false;
-	colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eOne;
-	colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eZero;
-	colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
-	colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
-	colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
-	colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
+	auto colorBlending = vk::PipelineColorBlendStateCreateInfo().setAttachments(colorBlendAttachment);
+	// colorBlending.logicOpEnable = false;
+	// colorBlending.logicOp = vk::LogicOp::eCopy;
 
-	vk::PipelineColorBlendStateCreateInfo colorBlending;
-	colorBlending.logicOpEnable = false;
-	colorBlending.logicOp = vk::LogicOp::eCopy;
-	colorBlending.attachmentCount = 1;
-	colorBlending.pAttachments = &colorBlendAttachment;
-	colorBlending.blendConstants[0] = 0.0f;
-	colorBlending.blendConstants[1] = 0.0f;
-	colorBlending.blendConstants[2] = 0.0f;
-	colorBlending.blendConstants[3] = 0.0f;
+	pipelineLayout = device->createPipelineLayoutUnique({});
 
-	vk::PipelineLayoutCreateInfo pipelineLayoutInfo;
-	pipelineLayoutInfo.setLayoutCount = 0;
-	pipelineLayoutInfo.pSetLayouts = nullptr;
-	pipelineLayoutInfo.pushConstantRangeCount = 0;
-	pipelineLayoutInfo.pPushConstantRanges = nullptr;
-
-	pipelineLayout = device->createPipelineLayoutUnique(pipelineLayoutInfo);
-
-	vk::GraphicsPipelineCreateInfo pipelineInfo;
-	pipelineInfo.stageCount = 2;
-	pipelineInfo.pStages = shaderStages;
-	pipelineInfo.pVertexInputState = &vertexInputInfo;
-	pipelineInfo.pInputAssemblyState = &inputAssembly;
-	pipelineInfo.pViewportState = &viewportState;
-	pipelineInfo.pRasterizationState = &rasterizer;
-	pipelineInfo.pMultisampleState = &multisampling;
-	pipelineInfo.pDepthStencilState = nullptr;
-	pipelineInfo.pColorBlendState = &colorBlending;
-	pipelineInfo.pDynamicState = nullptr;
-	pipelineInfo.layout = pipelineLayout.get();
-	pipelineInfo.renderPass = renderPass.get();
-	pipelineInfo.subpass = 0;
-	pipelineInfo.basePipelineHandle = nullptr;
-	pipelineInfo.basePipelineIndex = -1;
+	auto pipelineInfo = vk::GraphicsPipelineCreateInfo()
+							.setStages(std::array{vertShaderStageInfo, fragShaderStageInfo})
+							.setPInputAssemblyState(&inputAssembly)
+							.setPVertexInputState(&vertexInputState)
+							.setPViewportState(&viewportState)
+							.setPRasterizationState(&rasterizer)
+							.setPMultisampleState(&multisampling)
+							.setPColorBlendState(&colorBlending)
+							.setLayout(pipelineLayout.get())
+							.setRenderPass(renderPass.get());
 
 	graphicsPipeline = device->createGraphicsPipelineUnique(nullptr, pipelineInfo).value;
-
-	device->destroy(vertShaderModule);
-	device->destroy(fragShaderModule);
 }
 
-vk::ShaderModule HelloTriangleApplication::createShaderModule(const std::vector<char>& code)
+vk::UniqueShaderModule HelloTriangleApplication::createShaderModule(const std::vector<char>& code)
 {
 	vk::ShaderModuleCreateInfo createInfo;
 	createInfo.codeSize = code.size();
 	createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
-	return device->createShaderModule(createInfo);
+	return device->createShaderModuleUnique(createInfo);
 }
 
 void HelloTriangleApplication::createCommandBuffers()

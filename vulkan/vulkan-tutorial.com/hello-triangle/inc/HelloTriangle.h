@@ -88,7 +88,7 @@ private:
 	void createImageViews();
 	void createRenderPass();
 	void createGraphicsPipeline();
-	vk::ShaderModule createShaderModule(const std::vector<char>& code);
+	vk::UniqueShaderModule createShaderModule(const std::vector<char>& code);
 	void createCommandBuffers();
 	QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device);
 	void cleanupSwapChain();
