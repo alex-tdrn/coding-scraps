@@ -14,28 +14,24 @@ struct Vertex
 
 	static vk::VertexInputBindingDescription getBindingDescription()
 	{
-		vk::VertexInputBindingDescription description;
-		description.binding = 0;
-		description.stride = sizeof(Vertex);
-		description.inputRate = vk::VertexInputRate::eVertex;
-
-		return description;
+		return vk::VertexInputBindingDescription()
+			.setBinding(0)
+			.setStride(sizeof(Vertex))
+			.setInputRate(vk::VertexInputRate::eVertex);
 	}
 
 	static std::array<vk::VertexInputAttributeDescription, 2> getAttributeDescriptions()
 	{
-		vk::VertexInputAttributeDescription positionAttribute;
-		positionAttribute.binding = 0;
-		positionAttribute.location = 0;
-		positionAttribute.format = vk::Format::eR32G32Sfloat;
-		positionAttribute.offset = offsetof(Vertex, pos);
-
-		vk::VertexInputAttributeDescription colorAttribute;
-		colorAttribute.binding = 0;
-		colorAttribute.location = 1;
-		colorAttribute.format = vk::Format::eR32G32B32Sfloat;
-		colorAttribute.offset = offsetof(Vertex, color);
-
+		auto positionAttribute = vk::VertexInputAttributeDescription()
+									 .setBinding(0)
+									 .setLocation(0)
+									 .setFormat(vk::Format::eR32G32Sfloat)
+									 .setOffset(offsetof(Vertex, pos));
+		auto colorAttribute = vk::VertexInputAttributeDescription()
+								  .setBinding(0)
+								  .setLocation(1)
+								  .setFormat(vk::Format::eR32G32B32Sfloat)
+								  .setOffset(offsetof(Vertex, color));
 		return {positionAttribute, colorAttribute};
 	}
 };
@@ -125,7 +121,7 @@ private:
 	void createImageViews();
 	void createRenderPass();
 	void createGraphicsPipeline();
-	vk::ShaderModule createShaderModule(const std::vector<char>& code);
+	vk::UniqueShaderModule createShaderModule(const std::vector<char>& code);
 	void copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size);
 	std::pair<vk::UniqueBuffer, vk::UniqueDeviceMemory> createBuffer(
 		vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
