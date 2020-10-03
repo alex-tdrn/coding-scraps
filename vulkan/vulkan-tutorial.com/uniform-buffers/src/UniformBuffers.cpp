@@ -6,6 +6,7 @@
 #include <cstring>
 #include <fstream>
 #include <functional>
+#include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <set>
 #include <stdexcept>
@@ -104,11 +105,13 @@ void UniformBuffers::initVulkan()
 	createSwapChain();
 	createImageViews();
 	createRenderPass();
+	createDescriptorSetLayout();
 	createGraphicsPipeline();
 	createFramebuffers();
 	createCommandPool();
 	createVertexBuffer();
 	createIndexBuffer();
+	createUniformBuffers();
 	createCommandBuffers();
 	createSyncObjects();
 }
@@ -330,6 +333,8 @@ void UniformBuffers::drawFrame()
 			device->waitForFences(imagesInFlight[imageIndex].get(), true, UINT64_MAX);
 		imagesInFlight[imageIndex] = device->createFenceUnique({vk::FenceCreateFlagBits::eSignaled});
 
+		updateUniformBuffer(imageIndex);
+
 		vk::PipelineStageFlags waitStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 
 		auto submitInfo = vk::SubmitInfo()
@@ -381,6 +386,7 @@ void UniformBuffers::recreateSwapChain()
 	createRenderPass();
 	createGraphicsPipeline();
 	createFramebuffers();
+	createUniformBuffers();
 	createCommandBuffers();
 }
 
@@ -523,6 +529,19 @@ void UniformBuffers::createRenderPass()
 	renderPass = device->createRenderPassUnique(renderPassInfo);
 }
 
+void UniformBuffers::createDescriptorSetLayout()
+{
+	auto uboLayoutBinding = vk::DescriptorSetLayoutBinding()
+								.setBinding(0)
+								.setDescriptorType(vk::DescriptorType::eUniformBuffer)
+								.setDescriptorCount(1)
+								.setStageFlags(vk::ShaderStageFlagBits::eVertex);
+
+	auto layoutInfo = vk::DescriptorSetLayoutCreateInfo().setBindings(uboLayoutBinding);
+
+	descriptorSetLayout = device->createDescriptorSetLayoutUnique(layoutInfo);
+}
+
 void UniformBuffers::createGraphicsPipeline()
 {
 	auto vertShaderCode = readFile("shader.vert.spv");
@@ -576,7 +595,9 @@ void UniformBuffers::createGraphicsPipeline()
 
 	auto colorBlending = vk::PipelineColorBlendStateCreateInfo().setAttachments(colorBlendAttachment);
 
-	pipelineLayout = device->createPipelineLayoutUnique({});
+	auto pipeLineLayoutInfo = vk::PipelineLayoutCreateInfo().setSetLayouts(descriptorSetLayout.get());
+
+	pipelineLayout = device->createPipelineLayoutUnique(pipeLineLayoutInfo);
 
 	auto stages = std::array{vertShaderStageInfo, fragShaderStageInfo};
 
@@ -592,6 +613,23 @@ void UniformBuffers::createGraphicsPipeline()
 							.setRenderPass(renderPass.get());
 
 	graphicsPipeline = device->createGraphicsPipelineUnique(nullptr, pipelineInfo).value;
+}
+
+void UniformBuffers::updateUniformBuffer(uint32_t currentImage)
+{
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - appStartTime).count();
+
+	UniformBufferObject ubo;
+	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.view = glm::lookAt(glm::vec3(2.0f), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	float aspectRatio = swapChainExtent.width / float(swapChainExtent.height);
+	ubo.proj = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 10.0f);
+	ubo.proj[1][1] *= -1;
+
+	void* data = device->mapMemory(uniformBuffersMemory[currentImage].get(), 0, sizeof(ubo));
+	std::memcpy(data, &ubo, sizeof(ubo));
+	device->unmapMemory(uniformBuffersMemory[currentImage].get());
 }
 
 vk::UniqueShaderModule UniformBuffers::createShaderModule(const std::vector<char>& code)
@@ -675,6 +713,19 @@ void UniformBuffers::createIndexBuffer()
 			vk::MemoryPropertyFlagBits::eDeviceLocal);
 
 	copyBuffer(stagingBuffer.get(), indexBuffer.get(), size);
+}
+
+void UniformBuffers::createUniformBuffers()
+{
+	auto size = sizeof(UniformBufferObject);
+	uniformBuffers.resize(swapChainImages.size());
+	uniformBuffersMemory.resize(swapChainImages.size());
+	for(int i = 0; i < swapChainImages.size(); i++)
+	{
+		std::tie(uniformBuffers[i], uniformBuffersMemory[i]) =
+			createBuffer(size, vk::BufferUsageFlagBits::eUniformBuffer,
+				vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+	}
 }
 
 void UniformBuffers::createCommandBuffers()

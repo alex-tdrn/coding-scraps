@@ -3,9 +3,17 @@
 #include <vulkan/vulkan.hpp>
 
 #include <GLFW/glfw3.h>
+#include <chrono>
 #include <glm/glm.hpp>
 #include <optional>
 #include <vector>
+
+struct UniformBufferObject
+{
+	glm::mat4 model;
+	glm::mat4 view;
+	glm::mat4 proj;
+};
 
 struct Vertex
 {
@@ -66,6 +74,7 @@ private:
 	const int HEIGHT = 600;
 	const int MAX_FRAMES_IN_FLIGHT = 2;
 
+	std::chrono::high_resolution_clock::time_point appStartTime = std::chrono::high_resolution_clock::now();
 	GLFWwindow* window;
 	vk::UniqueInstance instance;
 	vk::UniqueDebugUtilsMessengerEXT debugMessenger;
@@ -80,6 +89,7 @@ private:
 	vk::Extent2D swapChainExtent;
 	std::vector<vk::UniqueImageView> swapChainImageViews;
 	vk::UniqueRenderPass renderPass;
+	vk::UniqueDescriptorSetLayout descriptorSetLayout;
 	vk::UniquePipelineLayout pipelineLayout;
 	vk::UniquePipeline graphicsPipeline;
 	std::vector<vk::UniqueFramebuffer> swapChainFramebuffers;
@@ -89,6 +99,8 @@ private:
 	vk::UniqueDeviceMemory vertexBufferMemory;
 	vk::UniqueBuffer indexBuffer;
 	vk::UniqueDeviceMemory indexBufferMemory;
+	std::vector<vk::UniqueBuffer> uniformBuffers;
+	std::vector<vk::UniqueDeviceMemory> uniformBuffersMemory;
 	std::vector<vk::UniqueSemaphore> imageAvailableSemaphores;
 	std::vector<vk::UniqueSemaphore> renderFinishedSemaphores;
 	std::vector<vk::UniqueFence> inFlightFences;
@@ -120,13 +132,16 @@ private:
 	SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice device);
 	void createImageViews();
 	void createRenderPass();
+	void createDescriptorSetLayout();
 	void createGraphicsPipeline();
+	void updateUniformBuffer(uint32_t currentImage);
 	vk::UniqueShaderModule createShaderModule(const std::vector<char>& code);
 	void copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size);
 	std::pair<vk::UniqueBuffer, vk::UniqueDeviceMemory> createBuffer(
 		vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
 	void createVertexBuffer();
 	void createIndexBuffer();
+	void createUniformBuffers();
 	void createCommandBuffers();
 	QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device);
 	uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
