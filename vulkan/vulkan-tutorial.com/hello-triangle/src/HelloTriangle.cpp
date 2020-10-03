@@ -537,9 +537,7 @@ void HelloTriangleApplication::createGraphicsPipeline()
 
 	auto vertexInputState = vk::PipelineVertexInputStateCreateInfo();
 
-	auto inputAssembly = vk::PipelineInputAssemblyStateCreateInfo()
-							 .setTopology(vk::PrimitiveTopology::eTriangleList)
-							 .setPrimitiveRestartEnable(false);
+	auto inputAssembly = vk::PipelineInputAssemblyStateCreateInfo().setTopology(vk::PrimitiveTopology::eTriangleList);
 
 	auto viewport = vk::Viewport()
 						.setWidth(swapChainExtent.width)
@@ -561,22 +559,18 @@ void HelloTriangleApplication::createGraphicsPipeline()
 							 .setRasterizationSamples(vk::SampleCountFlagBits::e1)
 							 .setMinSampleShading(1.0f);
 
-	auto colorBlendAttachment = vk::PipelineColorBlendAttachmentState()
-									.setSrcColorBlendFactor(vk::BlendFactor::eOne)
-									.setDstColorBlendFactor(vk::BlendFactor::eZero)
-									.setColorBlendOp(vk::BlendOp::eAdd)
-									.setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
-									.setDstAlphaBlendFactor(vk::BlendFactor::eZero)
-									.setAlphaBlendOp(vk::BlendOp::eAdd);
+	auto colorBlendAttachment = vk::PipelineColorBlendAttachmentState().setColorWriteMask(
+		vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB |
+		vk::ColorComponentFlagBits::eA);
 
 	auto colorBlending = vk::PipelineColorBlendStateCreateInfo().setAttachments(colorBlendAttachment);
-	// colorBlending.logicOpEnable = false;
-	// colorBlending.logicOp = vk::LogicOp::eCopy;
 
 	pipelineLayout = device->createPipelineLayoutUnique({});
 
+	auto stages = std::array{vertShaderStageInfo, fragShaderStageInfo};
+
 	auto pipelineInfo = vk::GraphicsPipelineCreateInfo()
-							.setStages(std::array{vertShaderStageInfo, fragShaderStageInfo})
+							.setStages(stages)
 							.setPInputAssemblyState(&inputAssembly)
 							.setPVertexInputState(&vertexInputState)
 							.setPViewportState(&viewportState)
