@@ -40,3 +40,4 @@ endfunction()
 
 add_subdirectory("vulkan-tutorial.com/hello-triangle")
 add_subdirectory("vulkan-tutorial.com/vertex-buffers")
+add_subdirectory("vulkan-tutorial.com/uniform-buffers")
