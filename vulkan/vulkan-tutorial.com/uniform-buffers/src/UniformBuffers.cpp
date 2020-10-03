@@ -388,9 +388,9 @@ void UniformBuffers::recreateSwapChain()
 	createRenderPass();
 	createGraphicsPipeline();
 	createFramebuffers();
+	createUniformBuffers();
 	createDescriptorPool();
 	createDescriptorSets();
-	createUniformBuffers();
 	createCommandBuffers();
 }
 
