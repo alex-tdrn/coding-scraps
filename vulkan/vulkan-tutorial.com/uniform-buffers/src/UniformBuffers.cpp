@@ -112,6 +112,8 @@ void UniformBuffers::initVulkan()
 	createVertexBuffer();
 	createIndexBuffer();
 	createUniformBuffers();
+	createDescriptorPool();
+	createDescriptorSets();
 	createCommandBuffers();
 	createSyncObjects();
 }
@@ -386,8 +388,48 @@ void UniformBuffers::recreateSwapChain()
 	createRenderPass();
 	createGraphicsPipeline();
 	createFramebuffers();
+	createDescriptorPool();
+	createDescriptorSets();
 	createUniformBuffers();
 	createCommandBuffers();
+}
+
+void UniformBuffers::createDescriptorPool()
+{
+	auto poolSize =
+		vk::DescriptorPoolSize().setType(vk::DescriptorType::eUniformBuffer).setDescriptorCount(swapChainImages.size());
+
+	auto poolInfo = vk::DescriptorPoolCreateInfo().setPoolSizes(poolSize).setMaxSets(swapChainImages.size());
+
+	descriptorPool = device->createDescriptorPoolUnique(poolInfo);
+}
+
+void UniformBuffers::createDescriptorSets()
+{
+	auto layouts = std::vector<vk::DescriptorSetLayout>(swapChainImages.size(), descriptorSetLayout.get());
+
+	auto allocInfo = vk::DescriptorSetAllocateInfo()
+						 .setDescriptorPool(descriptorPool.get())
+						 .setDescriptorSetCount(swapChainImages.size())
+						 .setSetLayouts(layouts);
+	descriptorSets = device->allocateDescriptorSets(allocInfo);
+
+	for(int i = 0; i < swapChainImages.size(); i++)
+	{
+		auto bufferInfo = vk::DescriptorBufferInfo()
+							  .setBuffer(uniformBuffers[i].get())
+							  .setOffset(0)
+							  .setRange(sizeof(UniformBufferObject));
+
+		auto descriptorWrite = vk::WriteDescriptorSet()
+								   .setDstSet(descriptorSets[i])
+								   .setDstBinding(0)
+								   .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+								   .setDescriptorCount(1)
+								   .setPBufferInfo(&bufferInfo);
+
+		device->updateDescriptorSets(descriptorWrite, {});
+	}
 }
 
 void UniformBuffers::createSwapChain()
@@ -583,7 +625,7 @@ void UniformBuffers::createGraphicsPipeline()
 						  .setPolygonMode(vk::PolygonMode::eFill)
 						  .setLineWidth(1.0f)
 						  .setCullMode(vk::CullModeFlagBits::eBack)
-						  .setFrontFace(vk::FrontFace::eClockwise);
+						  .setFrontFace(vk::FrontFace::eCounterClockwise);
 
 	auto multisampling = vk::PipelineMultisampleStateCreateInfo()
 							 .setRasterizationSamples(vk::SampleCountFlagBits::e1)
@@ -756,6 +798,8 @@ void UniformBuffers::createCommandBuffers()
 		commandBuffers[i]->bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline.get());
 		commandBuffers[i]->bindVertexBuffers(0, vertexBuffer.get(), vk::DeviceSize(0));
 		commandBuffers[i]->bindIndexBuffer(indexBuffer.get(), vk::DeviceSize(0), vk::IndexType::eUint16);
+		commandBuffers[i]->bindDescriptorSets(
+			vk::PipelineBindPoint::eGraphics, pipelineLayout.get(), 0, descriptorSets[i], {});
 		commandBuffers[i]->drawIndexed(indices.size(), 1, 0, 0, 0);
 		commandBuffers[i]->endRenderPass();
 		commandBuffers[i]->end();

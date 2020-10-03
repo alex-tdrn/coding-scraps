@@ -99,6 +99,8 @@ private:
 	vk::UniqueDeviceMemory vertexBufferMemory;
 	vk::UniqueBuffer indexBuffer;
 	vk::UniqueDeviceMemory indexBufferMemory;
+	vk::UniqueDescriptorPool descriptorPool;
+	std::vector<vk::DescriptorSet> descriptorSets;
 	std::vector<vk::UniqueBuffer> uniformBuffers;
 	std::vector<vk::UniqueDeviceMemory> uniformBuffersMemory;
 	std::vector<vk::UniqueSemaphore> imageAvailableSemaphores;
@@ -118,6 +120,8 @@ private:
 	void pickPhysicalDevice();
 	void createLogicalDevice();
 	void createFramebuffers();
+	void createDescriptorPool();
+	void createDescriptorSets();
 	void createCommandPool();
 	void createSyncObjects();
 	void mainLoop();
