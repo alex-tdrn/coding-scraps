@@ -114,6 +114,8 @@ void TextureMapping::initVulkan()
 	createCommandPool();
 	createVertexBuffer();
 	createTextureImage();
+	createTextureImageView();
+	createTextureSampler();
 	createIndexBuffer();
 	createUniformBuffers();
 	createDescriptorPool();
@@ -234,8 +236,12 @@ void TextureMapping::createLogicalDevice()
 		queueCreateInfos.push_back(
 			vk::DeviceQueueCreateInfo().setQueueFamilyIndex(queueFamily).setQueuePriorities(queuePriority));
 
-	auto createInfo =
-		vk::DeviceCreateInfo().setQueueCreateInfos(queueCreateInfos).setPEnabledExtensionNames(deviceExtensions);
+	auto enabledFeatures = vk::PhysicalDeviceFeatures().setSamplerAnisotropy(true);
+
+	auto createInfo = vk::DeviceCreateInfo()
+						  .setQueueCreateInfos(queueCreateInfos)
+						  .setPEnabledExtensionNames(deviceExtensions)
+						  .setPEnabledFeatures(&enabledFeatures);
 
 	device = physicalDevice.createDeviceUnique(createInfo);
 
@@ -309,7 +315,9 @@ bool TextureMapping::isDeviceSuitable(vk::PhysicalDevice device)
 		SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
 		swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
 	}
-	return findQueueFamilies(device).isComplete() && swapChainAdequate;
+	auto supportedFeatures = device.getFeatures();
+
+	return findQueueFamilies(device).isComplete() && swapChainAdequate && supportedFeatures.samplerAnisotropy;
 }
 
 bool TextureMapping::checkDeviceExtensionSupport(vk::PhysicalDevice device)
@@ -527,22 +535,18 @@ SwapChainSupportDetails TextureMapping::querySwapChainSupport(vk::PhysicalDevice
 	return details;
 }
 
+vk::UniqueImageView TextureMapping::createImageView(vk::Image image, vk::Format format)
+{
+	auto createInfo = vk::ImageViewCreateInfo().setImage(image).setViewType(vk::ImageViewType::e2D).setFormat(format);
+	createInfo.subresourceRange.setAspectMask(vk::ImageAspectFlagBits::eColor).setLevelCount(1).setLayerCount(1);
+	return device->createImageViewUnique(createInfo);
+}
+
 void TextureMapping::createImageViews()
 {
 	swapChainImageViews.resize(swapChainImages.size());
-
 	for(size_t i = 0; i < swapChainImages.size(); i++)
-	{
-		auto createInfo = vk::ImageViewCreateInfo()
-							  .setImage(swapChainImages[i])
-							  .setViewType(vk::ImageViewType::e2D)
-							  .setFormat(swapChainImageFormat)
-							  .setSubresourceRange(vk::ImageSubresourceRange()
-													   .setAspectMask(vk::ImageAspectFlagBits::eColor)
-													   .setLevelCount(1)
-													   .setLayerCount(1)); // horrible?
-		swapChainImageViews[i] = device->createImageViewUnique(createInfo);
-	}
+		swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat);
 }
 
 void TextureMapping::createRenderPass()
@@ -859,6 +863,25 @@ void TextureMapping::createTextureImage()
 
 	transitionImageLayout(textureImage.get(), vk::Format::eR8G8B8A8Srgb, vk::ImageLayout::eTransferDstOptimal,
 		vk::ImageLayout::eShaderReadOnlyOptimal);
+}
+
+void TextureMapping::createTextureImageView()
+{
+	textureImageView = createImageView(textureImage.get(), vk::Format::eR8G8B8A8Srgb);
+}
+
+void TextureMapping::createTextureSampler()
+{
+	auto samplerInfo = vk::SamplerCreateInfo()
+						   .setMagFilter(vk::Filter::eLinear)
+						   .setMinFilter(vk::Filter::eLinear)
+						   .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+						   .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+						   .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+						   .setAnisotropyEnable(true)
+						   .setMaxAnisotropy(16.0f)
+						   .setMipmapMode(vk::SamplerMipmapMode::eLinear);
+	textureSampler = device->createSamplerUnique(samplerInfo);
 }
 
 void TextureMapping::createIndexBuffer()

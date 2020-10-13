@@ -101,6 +101,8 @@ private:
 	vk::UniqueDeviceMemory indexBufferMemory;
 	vk::UniqueImage textureImage;
 	vk::UniqueDeviceMemory textureImageMemory;
+	vk::UniqueImageView textureImageView;
+	vk::UniqueSampler textureSampler;
 	vk::UniqueDescriptorPool descriptorPool;
 	std::vector<vk::DescriptorSet> descriptorSets;
 	std::vector<vk::UniqueBuffer> uniformBuffers;
@@ -136,6 +138,7 @@ private:
 	vk::PresentModeKHR chooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& avaialablePresentModes);
 	vk::SurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats);
 	SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice device);
+	vk::UniqueImageView createImageView(vk::Image image, vk::Format format);
 	void createImageViews();
 	void createRenderPass();
 	void createDescriptorSetLayout();
@@ -154,6 +157,8 @@ private:
 		vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties);
 	void createVertexBuffer();
 	void createTextureImage();
+	void createTextureImageView();
+	void createTextureSampler();
 	void createIndexBuffer();
 	void createUniformBuffers();
 	void createCommandBuffers();
