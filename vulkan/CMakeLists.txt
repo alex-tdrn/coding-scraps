@@ -19,6 +19,7 @@ add_compile_definitions("$<$<CONFIG:DEBUG>:DEBUG>")
 find_package(Vulkan REQUIRED)
 find_package(glfw REQUIRED)
 find_package(glm REQUIRED)
+find_package(stb REQUIRED)
 
 find_program(GLSLC glslc REQUIRED)
 

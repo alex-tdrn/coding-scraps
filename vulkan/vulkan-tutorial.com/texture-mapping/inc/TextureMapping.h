@@ -99,6 +99,8 @@ private:
 	vk::UniqueDeviceMemory vertexBufferMemory;
 	vk::UniqueBuffer indexBuffer;
 	vk::UniqueDeviceMemory indexBufferMemory;
+	vk::UniqueImage textureImage;
+	vk::UniqueDeviceMemory textureImageMemory;
 	vk::UniqueDescriptorPool descriptorPool;
 	std::vector<vk::DescriptorSet> descriptorSets;
 	std::vector<vk::UniqueBuffer> uniformBuffers;
@@ -140,10 +142,18 @@ private:
 	void createGraphicsPipeline();
 	void updateUniformBuffer(uint32_t currentImage);
 	vk::UniqueShaderModule createShaderModule(const std::vector<char>& code);
+	vk::UniqueCommandBuffer beginSingleTimeCommands();
+	void endSingleTimeCommands(vk::UniqueCommandBuffer&& commandBuffer);
 	void copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size);
+	void copyBufferToImage(vk::Buffer srcBuffer, vk::Image dstImage, uint32_t width, uint32_t height);
+	void transitionImageLayout(
+		vk::Image image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
 	std::pair<vk::UniqueBuffer, vk::UniqueDeviceMemory> createBuffer(
 		vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
+	std::pair<vk::UniqueImage, vk::UniqueDeviceMemory> createImage(uint32_t width, uint32_t height, vk::Format format,
+		vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties);
 	void createVertexBuffer();
+	void createTextureImage();
 	void createIndexBuffer();
 	void createUniformBuffers();
 	void createCommandBuffers();

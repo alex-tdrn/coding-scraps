@@ -1,5 +1,7 @@
 #include "TextureMapping.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
@@ -9,6 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <set>
+#include <stb_image.h>
 #include <stdexcept>
 
 #ifdef DEBUG
@@ -110,6 +113,7 @@ void TextureMapping::initVulkan()
 	createFramebuffers();
 	createCommandPool();
 	createVertexBuffer();
+	createTextureImage();
 	createIndexBuffer();
 	createUniformBuffers();
 	createDescriptorPool();
@@ -683,22 +687,85 @@ vk::UniqueShaderModule TextureMapping::createShaderModule(const std::vector<char
 	return device->createShaderModuleUnique(createInfo);
 }
 
-void TextureMapping::copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size)
+vk::UniqueCommandBuffer TextureMapping::beginSingleTimeCommands()
 {
 	auto allocInfo = vk::CommandBufferAllocateInfo()
 						 .setCommandPool(commandPool.get())
 						 .setLevel(vk::CommandBufferLevel::ePrimary)
 						 .setCommandBufferCount(1);
 
-	auto copyCommandBuffers = device->allocateCommandBuffersUnique(allocInfo);
+	auto commandBuffers = device->allocateCommandBuffersUnique(allocInfo);
 
-	copyCommandBuffers[0]->begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
-	copyCommandBuffers[0]->copyBuffer(srcBuffer, dstBuffer, vk::BufferCopy{0, 0, size});
-	copyCommandBuffers[0]->end();
+	commandBuffers[0]->begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+	return std::move(commandBuffers[0]);
+}
 
-	graphicsQueue.submit(vk::SubmitInfo().setCommandBuffers(copyCommandBuffers[0].get()), nullptr);
-
+void TextureMapping::endSingleTimeCommands(vk::UniqueCommandBuffer&& commandBuffer)
+{
+	commandBuffer->end();
+	graphicsQueue.submit(vk::SubmitInfo().setCommandBuffers(commandBuffer.get()), nullptr);
 	graphicsQueue.waitIdle();
+}
+
+void TextureMapping::copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size)
+{
+	auto copyCommandBuffer = beginSingleTimeCommands();
+
+	copyCommandBuffer->copyBuffer(srcBuffer, dstBuffer, vk::BufferCopy{0, 0, size});
+
+	endSingleTimeCommands(std::move(copyCommandBuffer));
+}
+
+void TextureMapping::copyBufferToImage(vk::Buffer srcBuffer, vk::Image dstImage, uint32_t width, uint32_t height)
+{
+	auto copyCommandBuffer = beginSingleTimeCommands();
+
+	auto imageCopyInfo =
+		vk::BufferImageCopy().setImageExtent(vk::Extent3D().setWidth(width).setHeight(height).setDepth(1));
+
+	imageCopyInfo.imageSubresource.setAspectMask(vk::ImageAspectFlagBits::eColor).setLayerCount(1);
+
+	copyCommandBuffer->copyBufferToImage(srcBuffer, dstImage, vk::ImageLayout::eTransferDstOptimal, imageCopyInfo);
+
+	endSingleTimeCommands(std::move(copyCommandBuffer));
+}
+
+void TextureMapping::transitionImageLayout(
+	vk::Image image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout)
+{
+	auto commandBuffer = beginSingleTimeCommands();
+
+	auto barrier = vk::ImageMemoryBarrier()
+					   .setOldLayout(oldLayout)
+					   .setNewLayout(newLayout)
+					   .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+					   .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+					   .setImage(image);
+	barrier.subresourceRange.setAspectMask(vk::ImageAspectFlagBits::eColor).setLevelCount(1).setLayerCount(1);
+
+	vk::PipelineStageFlags sourceStageMask;
+	vk::PipelineStageFlags destinationStageMask;
+
+	if(oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal)
+	{
+		barrier.setDstAccessMask(vk::AccessFlagBits::eTransferWrite);
+		sourceStageMask = vk::PipelineStageFlagBits::eTopOfPipe;
+		destinationStageMask = vk::PipelineStageFlagBits::eTransfer;
+	}
+	else if(oldLayout == vk::ImageLayout::eTransferDstOptimal && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal)
+	{
+		barrier.setSrcAccessMask(vk::AccessFlagBits::eTransferWrite);
+		barrier.setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+		sourceStageMask = vk::PipelineStageFlagBits::eTransfer;
+		destinationStageMask = vk::PipelineStageFlagBits::eFragmentShader;
+	}
+	else
+	{
+		throw std::runtime_error("unsupported layout transition!");
+	}
+	commandBuffer->pipelineBarrier(sourceStageMask, destinationStageMask, {}, {}, {}, barrier);
+
+	endSingleTimeCommands(std::move(commandBuffer));
 }
 
 std::pair<vk::UniqueBuffer, vk::UniqueDeviceMemory> TextureMapping::createBuffer(
@@ -721,6 +788,31 @@ std::pair<vk::UniqueBuffer, vk::UniqueDeviceMemory> TextureMapping::createBuffer
 	return {std::move(buffer), std::move(memory)};
 }
 
+std::pair<vk::UniqueImage, vk::UniqueDeviceMemory> TextureMapping::createImage(uint32_t width, uint32_t height,
+	vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties)
+{
+	auto imageInfo = vk::ImageCreateInfo()
+						 .setImageType(vk::ImageType::e2D)
+						 .setMipLevels(1)
+						 .setArrayLayers(1)
+						 .setFormat(format)
+						 .setTiling(tiling)
+						 .setUsage(usage)
+						 .setSharingMode(vk::SharingMode::eExclusive)
+						 .setSamples(vk::SampleCountFlagBits::e1);
+	imageInfo.extent.setWidth(width).setHeight(height).setDepth(1);
+
+	auto image = device->createImageUnique(imageInfo);
+
+	auto memoryRequirements = device->getImageMemoryRequirements(image.get());
+	auto allocInfo = vk::MemoryAllocateInfo()
+						 .setAllocationSize(memoryRequirements.size)
+						 .setMemoryTypeIndex(findMemoryType(memoryRequirements.memoryTypeBits, properties));
+	auto imageMemory = device->allocateMemoryUnique(allocInfo);
+	device->bindImageMemory(image.get(), imageMemory.get(), 0);
+	return {std::move(image), std::move(imageMemory)};
+}
+
 void TextureMapping::createVertexBuffer()
 {
 	auto size = sizeof(vertices[0]) * vertices.size();
@@ -737,6 +829,36 @@ void TextureMapping::createVertexBuffer()
 			vk::MemoryPropertyFlagBits::eDeviceLocal);
 
 	copyBuffer(stagingBuffer.get(), vertexBuffer.get(), size);
+}
+
+void TextureMapping::createTextureImage()
+{
+	int texWidth, texHeight, texChannels;
+	auto pixels = stbi_load("../../../../textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	if(!pixels)
+		throw std::runtime_error("failed to load texture image");
+
+	auto imageSize = texWidth * texHeight * 4;
+
+	auto [stagingBuffer, stagingBufferMemory] = createBuffer(imageSize, vk::BufferUsageFlagBits::eTransferSrc,
+		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+	void* data = device->mapMemory(stagingBufferMemory.get(), 0, imageSize);
+	std::memcpy(data, pixels, imageSize);
+	device->unmapMemory(stagingBufferMemory.get());
+	stbi_image_free(pixels);
+
+	std::tie(textureImage, textureImageMemory) = createImage(texWidth, texHeight, vk::Format::eR8G8B8A8Srgb,
+		vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+		vk::MemoryPropertyFlagBits::eDeviceLocal);
+
+	transitionImageLayout(textureImage.get(), vk::Format::eR8G8B8A8Srgb, vk::ImageLayout::eUndefined,
+		vk::ImageLayout::eTransferDstOptimal);
+
+	copyBufferToImage(stagingBuffer.get(), textureImage.get(), texWidth, texHeight);
+
+	transitionImageLayout(textureImage.get(), vk::Format::eR8G8B8A8Srgb, vk::ImageLayout::eTransferDstOptimal,
+		vk::ImageLayout::eShaderReadOnlyOptimal);
 }
 
 void TextureMapping::createIndexBuffer()
