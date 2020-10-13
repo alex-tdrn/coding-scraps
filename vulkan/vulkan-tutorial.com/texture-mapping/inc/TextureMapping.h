@@ -19,6 +19,7 @@ struct Vertex
 {
 	glm::vec2 pos;
 	glm::vec3 color;
+	glm::vec2 texCoord;
 
 	static vk::VertexInputBindingDescription getBindingDescription()
 	{
@@ -28,19 +29,27 @@ struct Vertex
 			.setInputRate(vk::VertexInputRate::eVertex);
 	}
 
-	static std::array<vk::VertexInputAttributeDescription, 2> getAttributeDescriptions()
+	static std::array<vk::VertexInputAttributeDescription, 3> getAttributeDescriptions()
 	{
 		auto positionAttribute = vk::VertexInputAttributeDescription()
 									 .setBinding(0)
 									 .setLocation(0)
 									 .setFormat(vk::Format::eR32G32Sfloat)
 									 .setOffset(offsetof(Vertex, pos));
+
 		auto colorAttribute = vk::VertexInputAttributeDescription()
 								  .setBinding(0)
 								  .setLocation(1)
 								  .setFormat(vk::Format::eR32G32B32Sfloat)
 								  .setOffset(offsetof(Vertex, color));
-		return {positionAttribute, colorAttribute};
+
+		auto texCoordAttribute = vk::VertexInputAttributeDescription()
+									 .setBinding(0)
+									 .setLocation(2)
+									 .setFormat(vk::Format::eR32G32Sfloat)
+									 .setOffset(offsetof(Vertex, texCoord));
+
+		return {positionAttribute, colorAttribute, texCoordAttribute};
 	}
 };
 

@@ -20,8 +20,9 @@ const bool enableValidationLayers = true;
 const bool enableValidationLayers = false;
 #endif
 
-const std::vector<Vertex> vertices = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}}, {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-	{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}, {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}};
+const std::vector<Vertex> vertices = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+	{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}}, {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+	{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}};
 
 const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 
@@ -408,10 +409,15 @@ void TextureMapping::recreateSwapChain()
 
 void TextureMapping::createDescriptorPool()
 {
-	auto poolSize =
-		vk::DescriptorPoolSize().setType(vk::DescriptorType::eUniformBuffer).setDescriptorCount(swapChainImages.size());
+	std::vector<vk::DescriptorPoolSize> poolSizes;
+	poolSizes.push_back(vk::DescriptorPoolSize()
+							.setType(vk::DescriptorType::eUniformBuffer)
+							.setDescriptorCount(swapChainImages.size()));
+	poolSizes.push_back(vk::DescriptorPoolSize()
+							.setType(vk::DescriptorType::eCombinedImageSampler)
+							.setDescriptorCount(swapChainImages.size()));
 
-	auto poolInfo = vk::DescriptorPoolCreateInfo().setPoolSizes(poolSize).setMaxSets(swapChainImages.size());
+	auto poolInfo = vk::DescriptorPoolCreateInfo().setPoolSizes(poolSizes).setMaxSets(swapChainImages.size());
 
 	descriptorPool = device->createDescriptorPoolUnique(poolInfo);
 }
@@ -433,14 +439,28 @@ void TextureMapping::createDescriptorSets()
 							  .setOffset(0)
 							  .setRange(sizeof(UniformBufferObject));
 
-		auto descriptorWrite = vk::WriteDescriptorSet()
-								   .setDstSet(descriptorSets[i])
-								   .setDstBinding(0)
-								   .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-								   .setDescriptorCount(1)
-								   .setPBufferInfo(&bufferInfo);
+		auto imageInfo = vk::DescriptorImageInfo()
+							 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+							 .setImageView(textureImageView.get())
+							 .setSampler(textureSampler.get());
 
-		device->updateDescriptorSets(descriptorWrite, {});
+		std::vector<vk::WriteDescriptorSet> descriptorWrites;
+
+		descriptorWrites.push_back(vk::WriteDescriptorSet()
+									   .setDstSet(descriptorSets[i])
+									   .setDstBinding(0)
+									   .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+									   .setDescriptorCount(1)
+									   .setPBufferInfo(&bufferInfo));
+
+		descriptorWrites.push_back(vk::WriteDescriptorSet()
+									   .setDstSet(descriptorSets[i])
+									   .setDstBinding(1)
+									   .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+									   .setDescriptorCount(1)
+									   .setPImageInfo(&imageInfo));
+
+		device->updateDescriptorSets(descriptorWrites, {});
 	}
 }
 
@@ -581,13 +601,21 @@ void TextureMapping::createRenderPass()
 
 void TextureMapping::createDescriptorSetLayout()
 {
-	auto uboLayoutBinding = vk::DescriptorSetLayoutBinding()
-								.setBinding(0)
-								.setDescriptorType(vk::DescriptorType::eUniformBuffer)
-								.setDescriptorCount(1)
-								.setStageFlags(vk::ShaderStageFlagBits::eVertex);
+	std::vector<vk::DescriptorSetLayoutBinding> bindings;
 
-	auto layoutInfo = vk::DescriptorSetLayoutCreateInfo().setBindings(uboLayoutBinding);
+	bindings.push_back(vk::DescriptorSetLayoutBinding()
+						   .setBinding(0)
+						   .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+						   .setDescriptorCount(1)
+						   .setStageFlags(vk::ShaderStageFlagBits::eVertex));
+
+	bindings.push_back(vk::DescriptorSetLayoutBinding()
+						   .setBinding(1)
+						   .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+						   .setDescriptorCount(1)
+						   .setStageFlags(vk::ShaderStageFlagBits::eFragment));
+
+	auto layoutInfo = vk::DescriptorSetLayoutCreateInfo().setBindings(bindings);
 
 	descriptorSetLayout = device->createDescriptorSetLayoutUnique(layoutInfo);
 }
