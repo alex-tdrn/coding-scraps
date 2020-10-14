@@ -2,9 +2,13 @@
 
 #include <vulkan/vulkan.hpp>
 
+#define GLM_ENABLE_EXPERIMENTAL
+
 #include <GLFW/glfw3.h>
 #include <chrono>
+#include <functional>
 #include <glm/glm.hpp>
+#include <glm/gtx/hash.hpp>
 #include <optional>
 #include <vector>
 
@@ -51,7 +55,25 @@ struct Vertex
 
 		return {positionAttribute, colorAttribute, texCoordAttribute};
 	}
+
+	bool operator==(const Vertex& other) const
+	{
+		return pos == other.pos && color == other.color && texCoord == other.texCoord;
+	}
 };
+
+namespace std
+{
+template <>
+struct hash<Vertex>
+{
+	std::size_t operator()(const Vertex& key) const
+	{
+		return ((hash<glm::vec3>()(key.pos) ^ (hash<glm::vec3>()(key.color) << 1)) >> 1) ^
+			   (hash<glm::vec2>()(key.texCoord) << 1);
+	}
+};
+} // namespace std
 
 struct QueueFamilyIndices
 {
@@ -82,6 +104,9 @@ private:
 	const int WIDTH = 800;
 	const int HEIGHT = 800;
 	const int MAX_FRAMES_IN_FLIGHT = 2;
+
+	std::vector<Vertex> vertices;
+	std::vector<uint32_t> indices;
 
 	std::chrono::high_resolution_clock::time_point appStartTime = std::chrono::high_resolution_clock::now();
 	GLFWwindow* window;
@@ -172,6 +197,7 @@ private:
 		vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
 	std::pair<vk::UniqueImage, vk::UniqueDeviceMemory> createImage(uint32_t width, uint32_t height, vk::Format format,
 		vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties);
+	void loadModel();
 	void createVertexBuffer();
 	void createTextureImage();
 	void createTextureImageView();

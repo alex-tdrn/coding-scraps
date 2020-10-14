@@ -1,6 +1,7 @@
 #include "LoadingModels.h"
 
 #define STB_IMAGE_IMPLEMENTATION
+#define TINYOBJLOADER_IMPLEMENTATION
 
 #include <algorithm>
 #include <cstdint>
@@ -13,6 +14,8 @@
 #include <set>
 #include <stb_image.h>
 #include <stdexcept>
+#include <tiny_obj_loader.h>
+#include <unordered_map>
 
 #ifdef DEBUG
 const bool enableValidationLayers = true;
@@ -20,14 +23,8 @@ const bool enableValidationLayers = true;
 const bool enableValidationLayers = false;
 #endif
 
-const std::vector<Vertex> vertices = {{{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-	{{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}}, {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-	{{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-
-	{{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}}, {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-	{{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}}, {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}};
-
-const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4};
+const std::string meshPath = "../../../../meshes/viking_room.obj";
+const std::string texturePath = "../../../../textures/viking_room.png";
 
 PFN_vkCreateDebugUtilsMessengerEXT pfnVkCreateDebugUtilsMessengerEXT;
 PFN_vkDestroyDebugUtilsMessengerEXT pfnVkDestroyDebugUtilsMessengerEXT;
@@ -119,6 +116,7 @@ void LoadingModels::initVulkan()
 	createCommandPool();
 	createDepthResources();
 	createFramebuffers();
+	loadModel();
 	createVertexBuffer();
 	createTextureImage();
 	createTextureImageView();
@@ -728,7 +726,7 @@ void LoadingModels::createGraphicsPipeline()
 	auto rasterizer = vk::PipelineRasterizationStateCreateInfo()
 						  .setPolygonMode(vk::PolygonMode::eFill)
 						  .setLineWidth(1.0f)
-						  .setCullMode(vk::CullModeFlagBits::eBack)
+						  .setCullMode(vk::CullModeFlagBits::eNone)
 						  .setFrontFace(vk::FrontFace::eCounterClockwise);
 
 	auto multisampling = vk::PipelineMultisampleStateCreateInfo()
@@ -937,6 +935,45 @@ std::pair<vk::UniqueImage, vk::UniqueDeviceMemory> LoadingModels::createImage(ui
 	return {std::move(image), std::move(imageMemory)};
 }
 
+void LoadingModels::loadModel()
+{
+	tinyobj::attrib_t attribute;
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+	std::string error;
+
+	if(!tinyobj::LoadObj(&attribute, &shapes, &materials, &error, meshPath.c_str()))
+	{
+		throw std::runtime_error(error);
+	}
+
+	std::unordered_map<Vertex, uint32_t> uniqueVertices;
+
+	for(const auto& shape : shapes)
+	{
+		for(const auto& index : shape.mesh.indices)
+		{
+			Vertex vertex;
+
+			vertex.pos = {attribute.vertices[3 * index.vertex_index + 0],
+				attribute.vertices[3 * index.vertex_index + 1], attribute.vertices[3 * index.vertex_index + 2]};
+
+			vertex.texCoord = {attribute.texcoords[2 * index.texcoord_index + 0],
+				1.0f - attribute.texcoords[2 * index.texcoord_index + 1]};
+
+			vertex.color = {1.0f, 1.0f, 1.0f};
+
+			if(uniqueVertices.count(vertex) == 0)
+			{
+				uniqueVertices[vertex] = vertices.size();
+				vertices.push_back(vertex);
+			}
+
+			indices.push_back(uniqueVertices[vertex]);
+		}
+	}
+}
+
 void LoadingModels::createVertexBuffer()
 {
 	auto size = sizeof(vertices[0]) * vertices.size();
@@ -958,7 +995,7 @@ void LoadingModels::createVertexBuffer()
 void LoadingModels::createTextureImage()
 {
 	int texWidth, texHeight, texChannels;
-	auto pixels = stbi_load("../../../../textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	auto pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 	if(!pixels)
 		throw std::runtime_error("failed to load texture image");
 
@@ -1063,7 +1100,7 @@ void LoadingModels::createCommandBuffers()
 		commandBuffers[i]->beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 		commandBuffers[i]->bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline.get());
 		commandBuffers[i]->bindVertexBuffers(0, vertexBuffer.get(), vk::DeviceSize(0));
-		commandBuffers[i]->bindIndexBuffer(indexBuffer.get(), vk::DeviceSize(0), vk::IndexType::eUint16);
+		commandBuffers[i]->bindIndexBuffer(indexBuffer.get(), vk::DeviceSize(0), vk::IndexType::eUint32);
 		commandBuffers[i]->bindDescriptorSets(
 			vk::PipelineBindPoint::eGraphics, pipelineLayout.get(), 0, descriptorSets[i], {});
 		commandBuffers[i]->drawIndexed(indices.size(), 1, 0, 0, 0);

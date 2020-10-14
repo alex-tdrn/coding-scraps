@@ -10,7 +10,6 @@ find_program(CONAN_FOUND conan REQUIRED)
 
 execute_process(
 	COMMAND conan install ${CMAKE_SOURCE_DIR} -if ${CMAKE_BINARY_DIR} --build missing -s build_type=${CMAKE_BUILD_TYPE}
-			-e CXX=${CMAKE_CXX_COMPILER} -e CC=${CMAKE_C_COMPILER}
 )
 include(${CMAKE_BINARY_DIR}/conan_paths.cmake)
 
@@ -22,6 +21,7 @@ find_package(Vulkan REQUIRED)
 find_package(glfw REQUIRED)
 find_package(glm REQUIRED)
 find_package(stb REQUIRED)
+find_package(tinyobjloader REQUIRED)
 
 find_program(GLSLC glslc REQUIRED)
 
