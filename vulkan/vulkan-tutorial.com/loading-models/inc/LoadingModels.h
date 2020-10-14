@@ -96,6 +96,8 @@ class LoadingModels
 {
 public:
 	bool framebufferResized = false;
+	float targetFOV = 45.0f;
+
 	void run();
 
 private:
@@ -104,6 +106,7 @@ private:
 	const int WIDTH = 800;
 	const int HEIGHT = 800;
 	const int MAX_FRAMES_IN_FLIGHT = 2;
+	float currentFOV = 45.0f;
 
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;

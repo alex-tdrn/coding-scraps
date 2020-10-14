@@ -80,6 +80,24 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBits
 	return false;
 }
 
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	LoadingModels* app = reinterpret_cast<LoadingModels*>(glfwGetWindowUserPointer(window));
+
+	float f = 1.0f;
+
+	if(yoffset < 0)
+	{
+		f += 0.1;
+	}
+	else if(yoffset > 0)
+	{
+		f -= 0.1;
+	}
+
+	app->targetFOV = std::min(std::max(app->targetFOV * f, 1.0f), 120.0f);
+}
+
 void LoadingModels::run()
 {
 	initWindow();
@@ -99,6 +117,7 @@ void LoadingModels::initWindow()
 
 	glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 	glfwSetKeyCallback(window, keypressCallback);
+	glfwSetScrollCallback(window, scroll_callback);
 }
 
 void LoadingModels::initVulkan()
@@ -303,6 +322,7 @@ void LoadingModels::mainLoop()
 	while(!glfwWindowShouldClose(window))
 	{
 		glfwPollEvents();
+		currentFOV += (targetFOV - currentFOV) * 0.005;
 		drawFrame();
 	}
 	device->waitIdle();
@@ -774,7 +794,7 @@ void LoadingModels::updateUniformBuffer(uint32_t currentImage)
 	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.view = glm::lookAt(glm::vec3(2.0f), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	float aspectRatio = swapChainExtent.width / float(swapChainExtent.height);
-	ubo.proj = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 10.0f);
+	ubo.proj = glm::perspective(glm::radians(currentFOV), aspectRatio, 0.1f, 10.0f);
 	ubo.proj[1][1] *= -1;
 
 	void* data = device->mapMemory(uniformBuffersMemory[currentImage].get(), 0, sizeof(ubo));
