@@ -16,6 +16,8 @@ include(${CMAKE_BINARY_DIR}/conan_paths.cmake)
 
 add_compile_definitions("$<$<CONFIG:DEBUG>:DEBUG>")
 
+add_compile_definitions("GLM_FORCE_DEPTH_ZERO_TO_ONE")
+
 find_package(Vulkan REQUIRED)
 find_package(glfw REQUIRED)
 find_package(glm REQUIRED)
@@ -43,3 +45,4 @@ add_subdirectory("vulkan-tutorial.com/hello-triangle")
 add_subdirectory("vulkan-tutorial.com/vertex-buffers")
 add_subdirectory("vulkan-tutorial.com/uniform-buffers")
 add_subdirectory("vulkan-tutorial.com/texture-mapping")
+add_subdirectory("vulkan-tutorial.com/depth-buffering")
