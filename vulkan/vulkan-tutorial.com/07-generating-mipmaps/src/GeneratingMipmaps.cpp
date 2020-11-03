@@ -588,7 +588,7 @@ vk::UniqueImageView GeneratingMipmaps::createImageView(
 	vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels)
 {
 	auto createInfo = vk::ImageViewCreateInfo().setImage(image).setViewType(vk::ImageViewType::e2D).setFormat(format);
-	createInfo.subresourceRange.setAspectMask(aspectFlags).setLevelCount(1).setLayerCount(1);
+	createInfo.subresourceRange.setAspectMask(aspectFlags).setLevelCount(mipLevels).setLayerCount(1);
 	return device->createImageViewUnique(createInfo);
 }
 
@@ -1016,11 +1016,19 @@ void GeneratingMipmaps::createVertexBuffer()
 	copyBuffer(stagingBuffer.get(), vertexBuffer.get(), size);
 }
 
-void GeneratingMipmaps::generateMipmaps(vk::Image image, int32_t texWidth, int32_t texHeight, uint32_t mipLevels)
+void GeneratingMipmaps::generateMipmaps(
+	vk::Image image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels)
 {
+	auto formatProperties = physicalDevice.getFormatProperties(imageFormat);
+	if(!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear))
+		throw std::runtime_error("texture image format does not support linear blitting!");
+
 	auto commandBuffer = beginSingleTimeCommands();
 
-	auto barrier = vk::ImageMemoryBarrier().setImage(image);
+	auto barrier = vk::ImageMemoryBarrier()
+					   .setImage(image)
+					   .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+					   .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
 	barrier.subresourceRange.setAspectMask(vk::ImageAspectFlagBits::eColor)
 		.setBaseArrayLayer(0)
 		.setLayerCount(1)
@@ -1112,7 +1120,7 @@ void GeneratingMipmaps::createTextureImage()
 
 	copyBufferToImage(stagingBuffer.get(), textureImage.get(), texWidth, texHeight);
 
-	generateMipmaps(textureImage.get(), texWidth, texHeight, mipLevels);
+	generateMipmaps(textureImage.get(), vk::Format::eR8G8B8A8Srgb, texWidth, texHeight, mipLevels);
 }
 
 void GeneratingMipmaps::createTextureImageView()
@@ -1131,7 +1139,10 @@ void GeneratingMipmaps::createTextureSampler()
 						   .setAddressModeW(vk::SamplerAddressMode::eRepeat)
 						   .setAnisotropyEnable(true)
 						   .setMaxAnisotropy(16.0f)
-						   .setMipmapMode(vk::SamplerMipmapMode::eLinear);
+						   .setMinLod(0)
+						   .setMaxLod(mipLevels)
+						   .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+						   .setMipLodBias(0);
 	textureSampler = device->createSamplerUnique(samplerInfo);
 }
 

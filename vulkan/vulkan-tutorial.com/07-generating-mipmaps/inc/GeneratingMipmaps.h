@@ -204,7 +204,8 @@ private:
 		vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties);
 	void loadModel();
 	void createVertexBuffer();
-	void generateMipmaps(vk::Image image, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
+	void generateMipmaps(
+		vk::Image image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 	void createTextureImage();
 	void createTextureImageView();
 	void createTextureSampler();
