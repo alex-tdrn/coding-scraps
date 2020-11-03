@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.18)
 
+# TODO make this work on windows!!
+
 project(coding-scraps)
 
 set(CMAKE_CXX_STANDARD 17)
