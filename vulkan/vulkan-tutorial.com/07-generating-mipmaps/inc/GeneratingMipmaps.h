@@ -139,6 +139,7 @@ private:
 	vk::UniqueDeviceMemory vertexBufferMemory;
 	vk::UniqueBuffer indexBuffer;
 	vk::UniqueDeviceMemory indexBufferMemory;
+	uint32_t mipLevels;
 	vk::UniqueImage textureImage;
 	vk::UniqueDeviceMemory textureImageMemory;
 	vk::UniqueImageView textureImageView;
@@ -178,7 +179,8 @@ private:
 	vk::PresentModeKHR chooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& avaialablePresentModes);
 	vk::SurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats);
 	SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice device);
-	vk::UniqueImageView createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags);
+	vk::UniqueImageView createImageView(
+		vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels);
 	void createImageViews();
 	void createDepthResources();
 	bool hasStencilComponent(vk::Format format);
@@ -195,13 +197,14 @@ private:
 	void copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size);
 	void copyBufferToImage(vk::Buffer srcBuffer, vk::Image dstImage, uint32_t width, uint32_t height);
 	void transitionImageLayout(
-		vk::Image image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
+		vk::Image image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t mipLevels);
 	std::pair<vk::UniqueBuffer, vk::UniqueDeviceMemory> createBuffer(
 		vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
-	std::pair<vk::UniqueImage, vk::UniqueDeviceMemory> createImage(uint32_t width, uint32_t height, vk::Format format,
-		vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties);
+	std::pair<vk::UniqueImage, vk::UniqueDeviceMemory> createImage(uint32_t width, uint32_t height, uint32_t mipLevels,
+		vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties);
 	void loadModel();
 	void createVertexBuffer();
+	void generateMipmaps(vk::Image image, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 	void createTextureImage();
 	void createTextureImageView();
 	void createTextureSampler();
