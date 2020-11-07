@@ -133,6 +133,7 @@ void Multisampling::initVulkan()
 	createDescriptorSetLayout();
 	createGraphicsPipeline();
 	createCommandPool();
+	createColorResources();
 	createDepthResources();
 	createFramebuffers();
 	loadModel();
@@ -225,6 +226,25 @@ void Multisampling::setupDebugMessenger()
 	debugMessenger = instance->createDebugUtilsMessengerEXTUnique(createInfo);
 }
 
+vk::SampleCountFlagBits Multisampling::getMaxUsableSampleCount()
+{
+	auto limits = physicalDevice.getProperties().limits;
+	auto counts = limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts;
+	if(counts & vk::SampleCountFlagBits::e64)
+		return vk::SampleCountFlagBits::e64;
+	if(counts & vk::SampleCountFlagBits::e32)
+		return vk::SampleCountFlagBits::e32;
+	if(counts & vk::SampleCountFlagBits::e16)
+		return vk::SampleCountFlagBits::e16;
+	if(counts & vk::SampleCountFlagBits::e8)
+		return vk::SampleCountFlagBits::e8;
+	if(counts & vk::SampleCountFlagBits::e4)
+		return vk::SampleCountFlagBits::e4;
+	if(counts & vk::SampleCountFlagBits::e2)
+		return vk::SampleCountFlagBits::e2;
+	return vk::SampleCountFlagBits::e1;
+}
+
 void Multisampling::createSurface()
 {
 	VkSurfaceKHR _surface;
@@ -243,6 +263,7 @@ void Multisampling::pickPhysicalDevice()
 		if(isDeviceSuitable(device))
 		{
 			physicalDevice = device;
+			msaaSamples = getMaxUsableSampleCount();
 			break;
 		}
 	}
@@ -280,7 +301,7 @@ void Multisampling::createFramebuffers()
 
 	for(auto& imageView : swapChainImageViews)
 	{
-		std::array attachments = {imageView.get(), depthImageView.get()};
+		std::array attachments = {colorImageView.get(), depthImageView.get(), imageView.get()};
 
 		auto framebufferInfo = vk::FramebufferCreateInfo()
 								   .setRenderPass(renderPass.get())
@@ -426,6 +447,7 @@ void Multisampling::recreateSwapChain()
 	createImageViews();
 	createRenderPass();
 	createGraphicsPipeline();
+	createColorResources();
 	createDepthResources();
 	createFramebuffers();
 	createUniformBuffers();
@@ -598,11 +620,20 @@ void Multisampling::createImageViews()
 			createImageView(swapChainImages[i], swapChainImageFormat, vk::ImageAspectFlagBits::eColor, 1);
 }
 
+void Multisampling::createColorResources()
+{
+	std::tie(colorImage, colorImageMemory) = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples,
+		swapChainImageFormat, vk::ImageTiling::eOptimal,
+		vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransientAttachment,
+		vk::MemoryPropertyFlagBits::eDeviceLocal);
+	colorImageView = createImageView(colorImage.get(), swapChainImageFormat, vk::ImageAspectFlagBits::eColor, 1);
+}
+
 void Multisampling::createDepthResources()
 {
 	auto format = findDepthFormat();
 	std::tie(depthImage, depthImageMemory) =
-		createImage(swapChainExtent.width, swapChainExtent.height, 1, format, vk::ImageTiling::eOptimal,
+		createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, format, vk::ImageTiling::eOptimal,
 			vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal);
 	depthImageView = createImageView(depthImage.get(), format, vk::ImageAspectFlagBits::eDepth, 1);
 
@@ -643,20 +674,33 @@ void Multisampling::createRenderPass()
 {
 	auto colorAttachment = vk::AttachmentDescription()
 							   .setFormat(swapChainImageFormat)
-							   .setSamples(vk::SampleCountFlagBits::e1)
+							   .setSamples(msaaSamples)
 							   .setLoadOp(vk::AttachmentLoadOp::eClear)
 							   .setStoreOp(vk::AttachmentStoreOp::eStore)
 							   .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
 							   .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
 							   .setInitialLayout(vk::ImageLayout::eUndefined)
-							   .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+							   .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
 	auto colorAttachmentRef =
 		vk::AttachmentReference().setAttachment(0).setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
+	auto colorResolveAttachment = vk::AttachmentDescription()
+									  .setFormat(swapChainImageFormat)
+									  .setSamples(vk::SampleCountFlagBits::e1)
+									  .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+									  .setStoreOp(vk::AttachmentStoreOp::eStore)
+									  .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+									  .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+									  .setInitialLayout(vk::ImageLayout::eUndefined)
+									  .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+
+	auto colorResolveAttachmentRef =
+		vk::AttachmentReference().setAttachment(2).setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
 	auto depthStencilAttachment = vk::AttachmentDescription()
 									  .setFormat(findDepthFormat())
-									  .setSamples(vk::SampleCountFlagBits::e1)
+									  .setSamples(msaaSamples)
 									  .setLoadOp(vk::AttachmentLoadOp::eClear)
 									  .setStoreOp(vk::AttachmentStoreOp::eDontCare)
 									  .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
@@ -670,6 +714,7 @@ void Multisampling::createRenderPass()
 	auto subpass = vk::SubpassDescription()
 					   .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
 					   .setColorAttachments(colorAttachmentRef)
+					   .setResolveAttachments(colorResolveAttachmentRef)
 					   .setPDepthStencilAttachment(&depthStencilAttachmentRef);
 
 	auto dependency = vk::SubpassDependency()
@@ -678,7 +723,7 @@ void Multisampling::createRenderPass()
 						  .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
 						  .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
 
-	std::array attachments = {colorAttachment, depthStencilAttachment};
+	std::array attachments = {colorAttachment, depthStencilAttachment, colorResolveAttachment};
 
 	auto renderPassInfo =
 		vk::RenderPassCreateInfo().setAttachments(attachments).setSubpasses(subpass).setDependencies(dependency);
@@ -750,9 +795,8 @@ void Multisampling::createGraphicsPipeline()
 						  .setCullMode(vk::CullModeFlagBits::eNone)
 						  .setFrontFace(vk::FrontFace::eCounterClockwise);
 
-	auto multisampling = vk::PipelineMultisampleStateCreateInfo()
-							 .setRasterizationSamples(vk::SampleCountFlagBits::e1)
-							 .setMinSampleShading(1.0f);
+	auto multisampling =
+		vk::PipelineMultisampleStateCreateInfo().setRasterizationSamples(msaaSamples).setMinSampleShading(1.0f);
 
 	auto colorBlendAttachment = vk::PipelineColorBlendAttachmentState().setColorWriteMask(
 		vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB |
@@ -792,7 +836,7 @@ void Multisampling::updateUniformBuffer(uint32_t currentImage)
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - appStartTime).count();
 
 	UniformBufferObject ubo;
-	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(30.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.view = glm::lookAt(glm::vec3(2.0f), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	float aspectRatio = swapChainExtent.width / float(swapChainExtent.height);
 	ubo.proj = glm::perspective(glm::radians(currentFOV), aspectRatio, 0.1f, 10.0f);
@@ -932,8 +976,8 @@ std::pair<vk::UniqueBuffer, vk::UniqueDeviceMemory> Multisampling::createBuffer(
 }
 
 std::pair<vk::UniqueImage, vk::UniqueDeviceMemory> Multisampling::createImage(uint32_t width, uint32_t height,
-	uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
-	vk::MemoryPropertyFlags properties)
+	uint32_t mipLevels, vk::SampleCountFlagBits numSamples, vk::Format format, vk::ImageTiling tiling,
+	vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties)
 {
 	auto imageInfo = vk::ImageCreateInfo()
 						 .setImageType(vk::ImageType::e2D)
@@ -943,7 +987,7 @@ std::pair<vk::UniqueImage, vk::UniqueDeviceMemory> Multisampling::createImage(ui
 						 .setTiling(tiling)
 						 .setUsage(usage)
 						 .setSharingMode(vk::SharingMode::eExclusive)
-						 .setSamples(vk::SampleCountFlagBits::e1);
+						 .setSamples(numSamples);
 	imageInfo.extent.setWidth(width).setHeight(height).setDepth(1);
 
 	auto image = device->createImageUnique(imageInfo);
@@ -1108,8 +1152,8 @@ void Multisampling::createTextureImage()
 	device->unmapMemory(stagingBufferMemory.get());
 	stbi_image_free(pixels);
 
-	std::tie(textureImage, textureImageMemory) = createImage(texWidth, texHeight, mipLevels, vk::Format::eR8G8B8A8Srgb,
-		vk::ImageTiling::eOptimal,
+	std::tie(textureImage, textureImageMemory) = createImage(texWidth, texHeight, mipLevels,
+		vk::SampleCountFlagBits::e1, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal,
 		vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
 		vk::MemoryPropertyFlagBits::eDeviceLocal);
 

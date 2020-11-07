@@ -125,6 +125,9 @@ private:
 	vk::Format swapChainImageFormat;
 	vk::Extent2D swapChainExtent;
 	std::vector<vk::UniqueImageView> swapChainImageViews;
+	vk::UniqueImage colorImage;
+	vk::UniqueDeviceMemory colorImageMemory;
+	vk::UniqueImageView colorImageView;
 	vk::UniqueImage depthImage;
 	vk::UniqueDeviceMemory depthImageMemory;
 	vk::UniqueImageView depthImageView;
@@ -153,6 +156,7 @@ private:
 	std::vector<vk::UniqueFence> inFlightFences;
 	std::vector<vk::UniqueFence> imagesInFlight;
 	size_t currentFrame = 0;
+	vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
 
 	void initWindow();
 	void initVulkan();
@@ -160,7 +164,7 @@ private:
 	bool checkValidationLayerSupport();
 	std::vector<const char*> getRequiredExtensions();
 	void setupDebugMessenger();
-	void populateDebugMessengerCreateInfo(vk::DebugUtilsMessengerCreateInfoEXT& createInfo);
+	vk::SampleCountFlagBits getMaxUsableSampleCount();
 	void createSurface();
 	void pickPhysicalDevice();
 	void createLogicalDevice();
@@ -182,6 +186,7 @@ private:
 	vk::UniqueImageView createImageView(
 		vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels);
 	void createImageViews();
+	void createColorResources();
 	void createDepthResources();
 	bool hasStencilComponent(vk::Format format);
 	vk::Format findDepthFormat();
@@ -201,7 +206,8 @@ private:
 	std::pair<vk::UniqueBuffer, vk::UniqueDeviceMemory> createBuffer(
 		vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
 	std::pair<vk::UniqueImage, vk::UniqueDeviceMemory> createImage(uint32_t width, uint32_t height, uint32_t mipLevels,
-		vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties);
+		vk::SampleCountFlagBits numSamples, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
+		vk::MemoryPropertyFlags properties);
 	void loadModel();
 	void createVertexBuffer();
 	void generateMipmaps(
